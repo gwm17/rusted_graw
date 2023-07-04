@@ -1,5 +1,6 @@
 
 use nom::number::complete::*;
+use nom::bytes::complete::*;
 use bitvec::prelude::*;
 
 use super::constants::*;
@@ -22,10 +23,10 @@ impl Default for GrawData {
 
 impl GrawData {
     pub fn check_data(&self) -> Result<(), GrawDataError> {
-        if (self.aget_id as u32) > NUMBER_OF_AGETS {
+        if self.aget_id > NUMBER_OF_AGETS {
             return Err(GrawDataError::BadAgetID(self.aget_id));
         }
-        if (self.channel as u32) > NUMBER_OF_CHANNELS {
+        if self.channel > NUMBER_OF_CHANNELS {
             return Err(GrawDataError::BadChannel(self.channel));
         }
         if (self.time_bucket_id as u32) > NUMBER_OF_TIME_BUCKETS {
@@ -54,6 +55,13 @@ fn parse_u16(buffer: &[u8]) -> Result<(&[u8], u16), GrawFrameError> {
     }
 }
 
+fn parse_u24_to_u32(buffer: &[u8]) -> Result<(&[u8], u32), GrawFrameError> {
+    match be_u24::<&[u8], nom::error::Error<&[u8]>>(buffer) {
+        Ok(b) => Ok(b),
+        Err(_) => Err(GrawFrameError::ParsingError)
+    }
+}
+
 fn parse_u32(buffer: &[u8]) -> Result<(&[u8], u32), GrawFrameError> {
     match be_u32::<&[u8], nom::error::Error<&[u8]>>(buffer) {
         Ok(b) => Ok(b),
@@ -61,9 +69,16 @@ fn parse_u32(buffer: &[u8]) -> Result<(&[u8], u32), GrawFrameError> {
     }
 }
 
-fn parse_u64(buffer: &[u8]) -> Result<(&[u8], u64), GrawFrameError> {
-    match be_u64::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Ok(b) => Ok(b),
+//48 bit words suck
+fn parse_u48_to_u64(buffer: &[u8]) -> Result<(&[u8], u64), GrawFrameError> {
+    match take::<usize, &[u8], nom::error::Error<&[u8]>>(4usize)(buffer) {
+        Ok((buf_slice, word)) => {
+            let mut full_word: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
+            for i in 0..4 {
+                full_word[i] = word[i]
+            }
+            return Ok((buf_slice, u64::from_be_bytes(full_word)));
+        }
         Err(_) => Err(GrawFrameError::ParsingError)
     }
 }
@@ -100,13 +115,29 @@ fn parse_multiplicity(buffer: &[u8]) -> Result<(&[u8], Vec<u16>), GrawFrameError
 }
 
 /*
+    FrameMetadata provides the graw file a way of querying the event (hardware-level)
+    information without accessing the entire frame
+ */
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct FrameMetadata {
+    pub event_id: u32,
+    pub event_time: u64
+}
+
+impl From<GrawFrameHeader> for FrameMetadata {
+    fn from(value: GrawFrameHeader) -> Self {
+        FrameMetadata { event_id: value.event_id, event_time: value.event_time }
+    }
+}
+
+/*
     A GrawFrame is the representation of a single readout of an AsAd. Each readout contains
     traces from the four AGET ASICS on the AsAd.
     GrawFrames are composed with a GrawFrameHeader which contains metadata about the frame,
     and an array of GrawData (the samples of the waveform)
  */
 #[derive(Debug, Clone, Default)]
-struct GrawFrameHeader {
+pub struct GrawFrameHeader {
     pub meta_type: u8, //set to 0x6 ?
     pub frame_size: u32, //in 32-bit words
     pub data_source: u8,
@@ -120,9 +151,7 @@ struct GrawFrameHeader {
     pub cobo_id: u8,
     pub asad_id: u8,
     pub read_offset: u16,
-    pub status: u8,
-    pub hit_patterns: Vec<BitVec<u8>>,
-    pub multiplicity: Vec<u16>
+    pub status: u8
 }
 
 impl GrawFrameHeader {
@@ -155,21 +184,19 @@ impl GrawFrameHeader {
         let mut buf_slice: &[u8] = buffer;
         let mut header = GrawFrameHeader::default();
         (buf_slice, header.meta_type) = parse_u8(buf_slice)?;
-        (buf_slice, header.frame_size) = parse_u32(buf_slice)?;
+        (buf_slice, header.frame_size) = parse_u24_to_u32(buf_slice)?; //Obnoxious. Actually a 24 bit word
         (buf_slice, header.data_source) = parse_u8(buf_slice)?;
         (buf_slice, header.frame_type) = parse_u16(buf_slice)?;
         (buf_slice, header.revision) = parse_u8(buf_slice)?;
         (buf_slice, header.header_size) = parse_u16(buf_slice)?;
         (buf_slice, header.item_size) = parse_u16(buf_slice)?;
         (buf_slice, header.n_items) = parse_u32(buf_slice)?;
-        (buf_slice, header.event_time) = parse_u64(buf_slice)?;
+        (buf_slice, header.event_time) = parse_u48_to_u64(buf_slice)?; //Obnoxious. Actually a 48 bit word
         (buf_slice, header.event_id) = parse_u32(buf_slice)?;
         (buf_slice, header.cobo_id) = parse_u8(buf_slice)?;
         (buf_slice, header.asad_id) = parse_u8(buf_slice)?;
         (buf_slice, header.read_offset) = parse_u16(buf_slice)?;
         (buf_slice, header.status) = parse_u8(buf_slice)?;
-        (buf_slice, header.hit_patterns) = parse_bitsets(buf_slice)?;
-        (buf_slice, header.multiplicity) = parse_multiplicity(buf_slice)?;
 
         Ok((buf_slice, header))
     }
@@ -177,7 +204,9 @@ impl GrawFrameHeader {
 
 #[derive(Debug)]
 pub struct GrawFrame {
-    header: GrawFrameHeader,
+    pub header: GrawFrameHeader,
+    hit_patterns: Vec<BitVec<u8>>,
+    multiplicity: Vec<u16>,
     pub data: Vec<GrawData>
 }
 
@@ -188,10 +217,11 @@ impl TryFrom<Vec<u8>> for GrawFrame {
         let mut buf_slice = buffer.as_slice();
 
         let mut frame = GrawFrame::new();
-
         
         (buf_slice, frame.header) = GrawFrameHeader::read_from_buffer(buf_slice)?;
         frame.header.check_header(buffer.len() as u32)?;
+        (buf_slice, frame.hit_patterns) = parse_bitsets(buf_slice)?;
+        (buf_slice, frame.multiplicity) = parse_multiplicity(buf_slice)?;
 
         if frame.header.frame_type == EXPECTED_FRAME_TYPE_PARTIAL {
             frame.extract_partial_data(buf_slice)?;
@@ -207,7 +237,7 @@ impl TryFrom<Vec<u8>> for GrawFrame {
 impl GrawFrame {
 
     pub fn new() -> GrawFrame {
-        GrawFrame { header: GrawFrameHeader::default(), data: vec![] }
+        GrawFrame { header: GrawFrameHeader::default(), hit_patterns: vec![], multiplicity: vec![], data: vec![] }
     }
 
     fn extract_partial_data(&mut self, buffer: &[u8]) -> Result<(), GrawFrameError> {

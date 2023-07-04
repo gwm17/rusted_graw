@@ -1,22 +1,18 @@
 use std::fs::File;
-use std::io::BufReader;
+use std::io::{BufReader, Seek, Read};
 use std::path::Path;
 
-use super::graw_frame::GrawFrame;
+use super::graw_frame::{FrameMetadata, GrawFrame, GrawFrameHeader};
+use super::constants::*;
 use super::error::GrawFileError;
 
-#[derive(Debug, Clone, Default)]
-pub struct FrameMetadata {
-    event_id: u32,
-    event_time: u32
-}
-
+const DEFAULT_BUFFER_SIZE: usize = 1_000_000; // 1MB buffer per file?
 
 #[derive(Debug)]
 pub struct GrawFile {
     file_handle: BufReader<File>,
     size_bytes: u64,
-    buffer_size_bytes: usize,
+    next_frame_metadata: FrameMetadata,
     is_eof: bool,
     is_open: bool
 }
@@ -30,18 +26,70 @@ impl GrawFile {
 
         let file = File::open(path)?;
         let size_bytes = file.metadata()?.len();
-        let handle = BufReader::new(file);
+        let handle = BufReader::with_capacity(DEFAULT_BUFFER_SIZE, file);
 
-
-        Ok(GrawFile {  file_handle: handle, size_bytes: size_bytes, buffer_size_bytes: 8000, is_eof: false, is_open: true })
+        Ok(GrawFile {  file_handle: handle, size_bytes: size_bytes, next_frame_metadata: FrameMetadata::default(), is_eof: false, is_open: true })
     }
 
-    pub fn read_frame(&mut self) -> Result<GrawFrame, GrawFileError> {
-        todo!()
+    pub fn get_next_frame(&mut self) -> Result<GrawFrame, GrawFileError> {
+        let next_header = self.get_next_frame_header()?;
+        let frame_read_size: usize = (next_header.frame_size * SIZE_UNIT) as usize;
+        let mut frame_word: Vec<u8> = vec![0; frame_read_size];
+
+        //Clear metadata
+        self.next_frame_metadata = FrameMetadata::default();
+
+        //Check to see if we reach end of file... shouldn't happen here tho
+        match self.file_handle.read_exact(&mut frame_word) {
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::UnexpectedEof => {
+                    self.is_eof = true;
+                    return Err(GrawFileError::EndOfFile);
+                },
+                _ => {
+                    return Err(GrawFileError::IOError(e));
+                }
+            }
+            Ok(()) => {
+                return Ok(GrawFrame::try_from(frame_word)?);
+            }
+        }
     }
 
-    pub fn read_frame_metadata(&mut self) -> Result<FrameMetadata, GrawFileError> {
-        todo!()
+    pub fn get_next_frame_metadata(&mut self) -> Result<&FrameMetadata, GrawFileError> {
+        if self.next_frame_metadata == FrameMetadata::default() {
+            self.next_frame_metadata = FrameMetadata::from(self.get_next_frame_header()?);
+        }
+        Ok(&self.next_frame_metadata)
+    }
+
+    pub fn is_eof(&self) -> &bool {
+        &self.is_eof
+    }
+
+    //Peek at the header of the next frame to extract sizing information or metadata
+    //This resets the file stream to the position at the start of the header, as the read of the frame includes
+    //reading the header
+    fn get_next_frame_header(&mut self) -> Result<GrawFrameHeader, GrawFileError> {
+        let read_size: usize = (EXPECTED_HEADER_SIZE as u32 * SIZE_UNIT) as usize;
+        let current_position = self.file_handle.stream_position()?;
+        let mut header_word: Vec<u8> = vec![0; read_size];
+        //Check to see if we reach end of file
+        match self.file_handle.read_exact(&mut header_word) {
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::UnexpectedEof => {
+                    self.is_eof = true;
+                    return Err(GrawFileError::EndOfFile);
+                }
+                _ => {
+                    return Err(GrawFileError::IOError(e));
+                }
+            }
+            Ok(_) => ()
+        }
+        let (_, header) = GrawFrameHeader::read_from_buffer(&header_word)?;
+        self.file_handle.seek(std::io::SeekFrom::Start(current_position))?;
+        Ok(header)
     }
 
 }
