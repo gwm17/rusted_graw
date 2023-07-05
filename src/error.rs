@@ -234,3 +234,39 @@ impl Display for EventBuilderError {
 impl Error for EventBuilderError {
 
 }
+
+/*
+    Config errors
+ */
+#[derive(Debug)]
+pub enum ConfigError {
+    BadFilePath(PathBuf),
+    IOError(std::io::Error),
+    ParsingError(serde_yaml::Error)
+}
+
+impl From<std::io::Error> for ConfigError {
+    fn from(value: std::io::Error) -> Self {
+        ConfigError::IOError(value)
+    }
+}
+
+impl From<serde_yaml::Error> for ConfigError {
+    fn from(value: serde_yaml::Error) -> Self {
+        ConfigError::ParsingError(value)
+    }
+}
+
+impl Display for ConfigError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::BadFilePath(path) => write!(f, "File {} given to Config does not exist!", path.display()),
+            Self::IOError(e) => write!(f, "Config received an io error: {}", e),
+            Self::ParsingError(e) => write!(f, "Config received a parsing error: {}", e)
+        }
+    }
+}
+
+impl Error for ConfigError {
+
+}

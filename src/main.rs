@@ -7,6 +7,7 @@ mod merger;
 mod pad_map;
 mod event_builder;
 mod hdf_file;
+mod config;
 
 use std::sync::mpsc::channel;
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ use crate::hdf_file::HDFWriter;
 use crate::merger::Merger;
 use crate::event_builder::EventBuilder;
 use crate::pad_map::PadMap;
+use crate::config::Config;
 
 fn main() {
     //Setup logging
@@ -31,14 +33,19 @@ fn main() {
     info!("Starting up rusted graw...\n");
 
     //TEMP -- This is the basic configuration
-    let pad_map_path: PathBuf = PathBuf::from("path");
-    let graw_path: PathBuf = PathBuf::from("graw");
-    let hdf_path: PathBuf = PathBuf::from("hdf");
+    let config_path = PathBuf::from("temp.yaml");
+    let config = match Config::read_config_file(&config_path) {
+        Ok(c) => c,
+        Err(e) => {
+            error!("Error reading configuration: {} Shutting down.\n", e);
+            return;
+        }
+    };
 
     //Setup resources
     let (event_tx, event_rx) = channel::<Event>();
     let (frame_tx, frame_rx) = channel::<GrawFrame>();
-    let pad_map = match PadMap::new(&pad_map_path) {
+    let pad_map = match PadMap::new(&config.pad_map_path) {
         Ok(pm) => pm,
         Err(e) => {
             error!("PadMap error at creation: {} Shutting down.\n", e);
@@ -47,7 +54,7 @@ fn main() {
     };
 
     //Initialize the merger, event builder, and hdf writer
-    let mut merger = match  Merger::new(&graw_path, frame_tx) {
+    let mut merger = match  Merger::new(&config.graw_path, frame_tx) {
         Ok(m) => m,
         Err(e) => {
             error!("An error was encountered initializing the merger: {} Shutting down.\n", e);
@@ -55,7 +62,7 @@ fn main() {
         }
     };
     let mut evb = EventBuilder::new(frame_rx, event_tx, pad_map);
-    let hdf_writer = match HDFWriter::new(&hdf_path, event_rx) {
+    let hdf_writer = match HDFWriter::new(&config.hdf_path, event_rx) {
         Ok(hdf) => hdf,
         Err(e) => {
             error!("An error was encountered initializing the hdf file: {} Shutting down.\n", e);
