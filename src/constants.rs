@@ -15,3 +15,4 @@ pub const NUMBER_OF_ASADS: u8 = 4; //per cobo
 pub const NUMBER_OF_AGETS: u8 = 4; // per asad
 pub const NUMBER_OF_CHANNELS: u8 = 68;
 pub const NUMBER_OF_TIME_BUCKETS: u32 = 512;
+pub const NUMBER_OF_MATRIX_COLUMNS: usize = NUMBER_OF_TIME_BUCKETS as usize + 5; // cobo, asad, aget, channel, buckets

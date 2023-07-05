@@ -47,7 +47,7 @@ impl Merger {
             eof_vec.clear();
 
             for (idx, file) in self.files.iter_mut().enumerate() {
-                if file.get_next_frame_metadata()?.event_id == event && ! (*file.is_eof()) {
+                if file.get_next_frame_metadata()?.event_id == event && !(*file.is_eof()) {
                     match self.frame_queue.send(file.get_next_frame()?) {
                         Ok(()) => (),
                         Err(_) => {

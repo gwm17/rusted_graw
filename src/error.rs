@@ -205,3 +205,32 @@ impl Display for MergerError {
 impl Error for MergerError {
 
 }
+
+/*
+    EventBuilder errors
+ */
+
+#[derive(Debug)]
+pub enum EventBuilderError {
+    SendError,
+    EventError(EventError)
+}
+
+impl From<EventError> for EventBuilderError {
+    fn from(value: EventError) -> Self {
+        Self::EventError(value)
+    }
+}
+
+impl Display for EventBuilderError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::SendError => write!(f, "An error occurred sending an event from the EventBuilder!"),
+            Self::EventError(val) => write!(f, "The EventBuilder recieved an event error: {}", val)
+        }
+    }
+}
+
+impl Error for EventBuilderError {
+
+}

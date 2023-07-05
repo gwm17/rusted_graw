@@ -8,6 +8,7 @@ use super::error::GrawFileError;
 
 const DEFAULT_BUFFER_SIZE: usize = 1_000_000; // 1MB buffer per file?
 
+#[allow(dead_code)]
 #[derive(Debug)]
 pub struct GrawFile {
     file_handle: BufReader<File>,
@@ -65,6 +66,11 @@ impl GrawFile {
 
     pub fn is_eof(&self) -> &bool {
         &self.is_eof
+    }
+
+    #[allow(dead_code)]
+    pub fn is_open(&self) -> &bool {
+        &self.is_open
     }
 
     //Peek at the header of the next frame to extract sizing information or metadata
