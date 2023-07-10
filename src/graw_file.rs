@@ -1,17 +1,24 @@
 use std::fs::File;
-use std::io::{BufReader, Seek, Read};
-use std::path::Path;
+use std::io::{Seek, Read, Cursor};
+use std::path::{Path, PathBuf};
 
 use super::graw_frame::{FrameMetadata, GrawFrame, GrawFrameHeader};
 use super::constants::*;
 use super::error::GrawFileError;
 
-const DEFAULT_BUFFER_SIZE: usize = 1_000_000; // 1MB buffer per file?
+/*
+    GrawFile
+    A .graw file is a raw data file produced by the AGET electronics system. Each graw file is produced by a single AsAd board. Each AsAd board houses 4
+    AGET digitizer components. 4 AsAd's are managed by a single CoBo.
 
+    The functional purpose of the GrawFile is to provide a simple interface to the underlying binary data, by providing methods which query the metadata (event data) of the next GrawFrame
+    (the functional data unit of a GrawFile) as well as retrieving the next GrawFrame.
+ */
 #[allow(dead_code)]
 #[derive(Debug)]
 pub struct GrawFile {
-    file_handle: BufReader<File>,
+    file_handle: File,
+    file_path: PathBuf,
     size_bytes: u64,
     next_frame_metadata: FrameMetadata,
     is_eof: bool,
@@ -20,18 +27,21 @@ pub struct GrawFile {
 
 impl GrawFile {
 
+    // Open a graw file in read-only mode. Initialize metadata, buffer
     pub fn new(path: &Path) -> Result<Self, GrawFileError> {
         if !path.exists() {
             return Err(GrawFileError::BadFilePath(path.to_path_buf()));
         }
 
+        let file_path = path.to_path_buf();
         let file = File::open(path)?;
         let size_bytes = file.metadata()?.len();
-        let handle = BufReader::with_capacity(DEFAULT_BUFFER_SIZE, file);
+        let handle = file;
 
-        Ok(GrawFile {  file_handle: handle, size_bytes: size_bytes, next_frame_metadata: FrameMetadata::default(), is_eof: false, is_open: true })
+        Ok(GrawFile {  file_handle: handle, file_path, size_bytes: size_bytes, next_frame_metadata: FrameMetadata::default(), is_eof: false, is_open: true })
     }
 
+    //Retrieve the next GrawFrame. Also clears the metadata
     pub fn get_next_frame(&mut self) -> Result<GrawFrame, GrawFileError> {
         let next_header = self.get_next_frame_header()?;
         let frame_read_size: usize = (next_header.frame_size * SIZE_UNIT) as usize;
@@ -57,11 +67,12 @@ impl GrawFile {
         }
     }
 
-    pub fn get_next_frame_metadata(&mut self) -> Result<&FrameMetadata, GrawFileError> {
+    //Retrieve the metadata of the next frame. Note that this does not affect the buffer position
+    pub fn get_next_frame_metadata(&mut self) -> Result<FrameMetadata, GrawFileError> {
         if self.next_frame_metadata == FrameMetadata::default() {
             self.next_frame_metadata = FrameMetadata::from(self.get_next_frame_header()?);
         }
-        Ok(&self.next_frame_metadata)
+        Ok(self.next_frame_metadata.clone())
     }
 
     pub fn is_eof(&self) -> &bool {
@@ -71,6 +82,11 @@ impl GrawFile {
     #[allow(dead_code)]
     pub fn is_open(&self) -> &bool {
         &self.is_open
+    }
+
+    #[allow(dead_code)]
+    pub fn get_filename(&self) -> &Path {
+        &self.file_path
     }
 
     //Peek at the header of the next frame to extract sizing information or metadata
@@ -93,7 +109,7 @@ impl GrawFile {
             }
             Ok(_) => ()
         }
-        let (_, header) = GrawFrameHeader::read_from_buffer(&header_word)?;
+        let header = GrawFrameHeader::read_from_buffer(&mut Cursor::new(header_word))?;
         self.file_handle.seek(std::io::SeekFrom::Start(current_position))?;
         Ok(header)
     }

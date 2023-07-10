@@ -31,9 +31,9 @@ impl Error for GrawDataError {
 /*
     GrawFrame errors
  */
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum GrawFrameError {
-    ParsingError,
+    IOError(std::io::Error),
     IncorrectMetaType(u8),
     IncorrectFrameSize(u32, u32),
     IncorrectFrameType(u16),
@@ -41,6 +41,12 @@ pub enum GrawFrameError {
     IncorrectItemSize(u16),
     IncorrectNumberOfItems(u32, u32),
     BadDatum(GrawDataError)
+}
+
+impl From<std::io::Error> for GrawFrameError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IOError(value)
+    }
 }
 
 impl From<GrawDataError> for GrawFrameError {
@@ -52,13 +58,13 @@ impl From<GrawDataError> for GrawFrameError {
 impl Display for GrawFrameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GrawFrameError::ParsingError => write!(f, "Error parsing buffer into GrawFrame!"),
+            GrawFrameError::IOError(e) => write!(f, "Error parsing buffer into GrawFrame: {}", e),
             GrawFrameError::IncorrectMetaType(t) => write!(f, "Incorrect meta type found for GrawFrame! Found: {} Expected: {}", t, EXPECTED_META_TYPE),
             GrawFrameError::IncorrectFrameSize(s, cs) => write!(f, "Incorrect frame size found for GrawFrame! Found: {}, Expected: {}", s, cs),
             GrawFrameError::IncorrectFrameType(t) => write!(f, "Incorrect frame type found for GrawFrame! Found: {}, Expected: {} or {}", t, EXPECTED_FRAME_TYPE_FULL, EXPECTED_FRAME_TYPE_PARTIAL),
             GrawFrameError::IncorrectHeaderSize(s) => write!(f, "Incorrect header size found for GrawFrame! Found: {}, Expected: {}", s, EXPECTED_HEADER_SIZE),
             GrawFrameError::IncorrectItemSize(s) => write!(f, "Incorrect item size found for GrawFrame! Found: {}, Expected: {} or {}", s, EXPECTED_ITEM_SIZE_FULL, EXPECTED_ITEM_SIZE_PARTIAL),
-            GrawFrameError::IncorrectNumberOfItems(s, cs) => write!(f, "Incorrect number of items in GrawFrame! Found: {}, Expected: {}", s, cs),
+            GrawFrameError::IncorrectNumberOfItems(s, cs) => write!(f, "Incorrect number of items in GrawFrame! Header frame size: {}, Calculated frame size: {}", s, cs),
             GrawFrameError::BadDatum(e) => write!(f, "Bad datum found in GrawFrame! Error: {}", e)
         }
     }
@@ -105,6 +111,45 @@ impl Display for GrawFileError {
 }
 
 impl Error for GrawFileError {
+
+}
+
+/*
+    AsadStack errors
+ */
+
+#[derive(Debug)]
+pub enum AsadStackError {
+    IOError(std::io::Error),
+    FileError(GrawFileError),
+    NoMoreFiles,
+    NoMatchingFiles
+}
+
+impl From<GrawFileError> for AsadStackError {
+    fn from(value: GrawFileError) -> Self {
+        Self::FileError(value)
+    }
+}
+
+impl From<std::io::Error> for AsadStackError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IOError(value)
+    }
+}
+
+impl Display for AsadStackError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::IOError(e) => write!(f, "AsadStack recieved an io error: {}", e),
+            Self::FileError(e) => write!(f, "AsadStack recieved a file error: {}", e),
+            Self::NoMoreFiles => write!(f, "AsadStack doesn't have any files left!"),
+            Self::NoMatchingFiles => write!(f, "AsadStack couldn't find any matching files!")
+        }
+    }
+}
+
+impl Error for AsadStackError {
 
 }
 
@@ -173,15 +218,15 @@ impl Error for EventError {
 
 #[derive(Debug)]
 pub enum MergerError {
-    FileError(GrawFileError),
-    SendError,
+    AsadError(AsadStackError),
+    EndOfMerge,
     NoFilesError,
     IOError(std::io::Error)
 }
 
-impl From<GrawFileError> for MergerError {
-    fn from(value: GrawFileError) -> Self {
-        MergerError::FileError(value)
+impl From<AsadStackError> for MergerError {
+    fn from(value: AsadStackError) -> Self {
+        MergerError::AsadError(value)
     }
 }
 
@@ -194,8 +239,8 @@ impl From<std::io::Error> for MergerError {
 impl Display for MergerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MergerError::FileError(e) => write!(f, "A file error occurred while merging! Error: {}", e),
-            MergerError::SendError => write!(f, "An error occurred sending data from the merger!"),
+            MergerError::AsadError(e) => write!(f, "A stack error occurred while merging! Error: {}", e),
+            MergerError::EndOfMerge => write!(f, "The merger has read all data in the associated files"),
             MergerError::NoFilesError => write!(f, "Merger could not find any files with .graw extension!"),
             MergerError::IOError(e) => write!(f, "The merger recieved an io error: {}", e)
         }
@@ -212,7 +257,7 @@ impl Error for MergerError {
 
 #[derive(Debug)]
 pub enum EventBuilderError {
-    SendError,
+    EventOutOfOrder(u32, u32),
     EventError(EventError)
 }
 
@@ -225,7 +270,7 @@ impl From<EventError> for EventBuilderError {
 impl Display for EventBuilderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::SendError => write!(f, "An error occurred sending an event from the EventBuilder!"),
+            Self::EventOutOfOrder(frame, event) => write!(f, "The event builder recieved a frame that is out of order -- frame event id: {} event builder event id: {}", frame, event),
             Self::EventError(val) => write!(f, "The EventBuilder recieved an event error: {}", val)
         }
     }

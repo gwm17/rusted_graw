@@ -1,76 +1,86 @@
-use std::sync::mpsc::Sender;
 use std::path::Path;
 
-use super::graw_file::GrawFile;
+
+use crate::constants::{NUMBER_OF_COBOS, NUMBER_OF_ASADS};
+use crate::error::AsadStackError;
+
+use super::asad_stack::AsadStack;
 use super::graw_frame::GrawFrame;
 use super::error::MergerError;
 
+/*
+    Merger
+    One of the three workers which comprise the application. Merger essentially performs a merge-sort operation on the data files
+ */
 #[derive(Debug)]
 pub struct Merger {
-    files: Vec<GrawFile>,
-    frame_queue: Sender<GrawFrame>
+    file_stacks: Vec<AsadStack>,
+    current_event: u32,
 }
 
 impl Merger {
-    pub fn new(graw_dir: &Path, queue: Sender<GrawFrame>) -> Result<Self, MergerError> {
+
+    //Create a new merger. Requires the path to the graw data files, as well as the queue for transmitting frames
+    pub fn new(graw_dir: &Path) -> Result<Self, MergerError> {
 
         let mut merger = Merger {
-            files: Vec::new(),
-            frame_queue: queue
+            file_stacks: Vec::new(),
+            current_event: 0
         };
 
-        for item in graw_dir.read_dir()? {
-            let filepath = item?.path();
-            match filepath.extension() {
-                Some(ext) => {
-                    if ext == "graw" {
-                        merger.files.push(GrawFile::new(&filepath)?);
+        //For every asad in every cobo, attempt to make a stack
+        for cobo in 0..NUMBER_OF_COBOS {
+            for asad in 0..NUMBER_OF_ASADS {
+                match AsadStack::new(graw_dir, cobo as i32, asad as i32) {
+                    Ok(stack) => {
+                        merger.file_stacks.push(stack);
+                    }
+                    Err(AsadStackError::NoMatchingFiles) => {
+                        continue;
+                    }
+                    Err(e) => {
+                        return Err(MergerError::AsadError(e));
                     }
                 }
-                _ => ()
             }
         }
 
-        if merger.files.len() == 0 {
+        //Oops no files
+        if merger.file_stacks.len() == 0 {
             return Err(MergerError::NoFilesError);
         }
 
         Ok(merger)
     }
 
-    pub fn run(&mut self) -> Result<(), MergerError> {
+    pub fn get_next_frame(&mut self) -> Result<GrawFrame, MergerError> {
+        let mut end_count: usize = 0;
+        loop  {
+            for stack in self.file_stacks.iter_mut() {
 
-        let mut event:u32 = 0; //what event are we on
-        let mut eof_vec: Vec<usize> = vec![]; //list of files which went eof in the most recent pass
-        loop {
-
-            eof_vec.clear();
-
-            for (idx, file) in self.files.iter_mut().enumerate() {
-                if file.get_next_frame_metadata()?.event_id == event && !(*file.is_eof()) {
-                    match self.frame_queue.send(file.get_next_frame()?) {
-                        Ok(()) => (),
-                        Err(_) => {
-                            return Err(MergerError::SendError);
+                match stack.get_next_frame_metadata() {
+                    Ok(meta) => {
+                        if meta.event_id == self.current_event {
+                            return Ok(stack.get_next_frame()?);
                         }
                     }
+                    Err(AsadStackError::NoMoreFiles) => {
+                        //end_of_stack.push(idx);
+                        end_count += 1;
+                        continue;
+                    }
+                    Err(e) => {
+                        return Err(MergerError::AsadError(e));
+                    }
                 }
-                else if *file.is_eof() {
-                    eof_vec.push(idx)
-                }
             }
 
-            for idx in eof_vec.iter() {
-                self.files.swap_remove(*idx); //I don't think we care about file order?
-            }
+            self.current_event += 1;
 
-            if self.files.len() == 0 {
-                break;
+            if end_count >= self.file_stacks.len() {
+                break Err(MergerError::EndOfMerge);
             }
-
-            event += 1;
         }
-
-        Ok(())
     }
+
 }

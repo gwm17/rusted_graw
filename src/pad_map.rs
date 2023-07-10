@@ -1,13 +1,15 @@
-use std::collections::HashMap;
+use std::hash::Hash;
 use std::io::Read;
 use std::path::Path;
 use std::fs::File;
+
+use fxhash::FxHashMap;
 
 use super::error::PadMapError;
 
 const ENTRIES_PER_LINE: usize = 5;
 
-#[derive(PartialEq, Eq, Hash, Debug, Clone)]
+#[derive(PartialEq, Eq, Debug, Clone)]
 pub struct HardwareID {
     pub cobo_id: usize,
     pub asad_id: usize,
@@ -28,6 +30,12 @@ impl HardwareID {
     }
 }
 
+impl Hash for HardwareID {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.pad_id.hash(state)
+    }
+}
+
 //Generate a unique id number for a given hardware location
 fn generate_uuid(cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) -> u64 {
     return (*channel_id as u64) + (*aget_id as u64) * 100 + (*asad_id as u64) * 10_000 + (*cobo_id as u64) * 1_000_000;
@@ -35,7 +43,7 @@ fn generate_uuid(cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) -> u
 
 #[derive(Debug, Clone, Default)]
 pub struct PadMap {
-    map: HashMap<u64, HardwareID>
+    map: FxHashMap<u64, HardwareID>
 }
 
 impl PadMap {
@@ -78,6 +86,7 @@ impl PadMap {
 
     pub fn get_hardware_id(&self, cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) -> Option<&HardwareID> {
         let uuid = generate_uuid(cobo_id, asad_id, aget_id, channel_id);
-        return self.map.get(&uuid);
+        let val = self.map.get(&uuid);
+        return val;
     }
 }

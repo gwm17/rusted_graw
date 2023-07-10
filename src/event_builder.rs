@@ -1,4 +1,3 @@
-use std::sync::mpsc::{Receiver, Sender};
 
 use crate::error::EventBuilderError;
 use crate::graw_frame::GrawFrame;
@@ -7,8 +6,6 @@ use crate::pad_map::PadMap;
 
 #[derive(Debug)]
 pub struct EventBuilder {
-    frame_queue: Receiver<GrawFrame>,
-    event_queue: Sender<Event>,
     current_event_id: u32,
     pad_map: PadMap,
     frame_stack: Vec<GrawFrame>
@@ -16,47 +13,44 @@ pub struct EventBuilder {
 
 impl EventBuilder {
 
-    pub fn new(frame_queue: Receiver<GrawFrame>, event_queue: Sender<Event>, pad_map: PadMap) -> Self {
+    pub fn new(pad_map: PadMap) -> Self {
         EventBuilder {
-            frame_queue,
-            event_queue,
             current_event_id: 0,
             pad_map,
             frame_stack: Vec::new()
         }
     }
 
-    pub fn run(&mut self) -> Result<(), EventBuilderError> {
-        loop {
+    pub fn append_frame(&mut self, frame: GrawFrame) -> Result<Option<Event>, EventBuilderError> {
 
-            let frame = match self.frame_queue.recv() {
-                Ok(f) => f,
-                Err(_) => { //Reciever Errors indicate that the sender channel was closed an there is no more data to be read
-                    break;
-                }
-            };
+        if frame.header.event_id > self.current_event_id && self.current_event_id != 0 {
+            let event: Event = Event::new(&self.pad_map, &self.frame_stack)?;
+            self.frame_stack.clear();
+            self.current_event_id = frame.header.event_id;
+            self.frame_stack.push(frame);
 
-            if frame.header.event_id != self.current_event_id {
-                self.send_event()?;
-                self.frame_stack.push(frame);
-            } else {
-                self.frame_stack.push(frame);
-            }
-
+            return Ok(Some(event));
+        } else if self.current_event_id == 0 {
+            self.current_event_id = frame.header.event_id;
+            self.frame_stack.push(frame);
+            return Ok(None)
+        } else if frame.header.event_id < self.current_event_id {
+            return Err(EventBuilderError::EventOutOfOrder(frame.header.event_id, self.current_event_id));
+        } else {
+            self.frame_stack.push(frame);
+            return Ok(None);
         }
-
-        Ok(())
     }
 
-    fn send_event(&mut self) -> Result<(), EventBuilderError> {
-        let event: Event = Event::new(&self.pad_map, &self.frame_stack)?;
-        match self.event_queue.send(event) {
-            Ok(_) => (),
-            Err(_) => {
-                return Err(EventBuilderError::SendError);
+    pub fn flush_final_event(&mut self) -> Option<Event> {
+        if self.frame_stack.len() != 0 {
+            match Event::new(&self.pad_map, &self.frame_stack) {
+                Ok(event) => Some(event),
+                Err(_) => None
             }
+        } else {
+            None
         }
-        self.frame_stack.clear();
-        Ok(())
     }
+
 }

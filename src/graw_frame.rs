@@ -1,7 +1,7 @@
 
-use nom::number::complete::*;
-use nom::bytes::complete::*;
 use bitvec::prelude::*;
+use byteorder::{ReadBytesExt, BigEndian};
+use std::io::Cursor;
 
 use super::constants::*;
 use super::error::{GrawFrameError, GrawDataError};
@@ -41,77 +41,33 @@ impl GrawData {
     Little parsing functions to handle big-endian 
  */
 
-fn parse_u8(buffer: &[u8]) -> Result<(&[u8], u8), GrawFrameError> {
-    match be_u8::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Ok(b) => Ok(b),
-        Err(_) => Err(GrawFrameError::ParsingError)
-    }
-}
-
-fn parse_u16(buffer: &[u8]) -> Result<(&[u8], u16), GrawFrameError> {
-    match be_u16::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Ok(b) => Ok(b),
-        Err(_) => Err(GrawFrameError::ParsingError)
-    }
-}
-
-fn parse_u24_to_u32(buffer: &[u8]) -> Result<(&[u8], u32), GrawFrameError> {
-    match be_u24::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Ok(b) => Ok(b),
-        Err(_) => Err(GrawFrameError::ParsingError)
-    }
-}
-
-fn parse_u32(buffer: &[u8]) -> Result<(&[u8], u32), GrawFrameError> {
-    match be_u32::<&[u8], nom::error::Error<&[u8]>>(buffer) {
-        Ok(b) => Ok(b),
-        Err(_) => Err(GrawFrameError::ParsingError)
-    }
-}
-
-//48 bit words suck
-fn parse_u48_to_u64(buffer: &[u8]) -> Result<(&[u8], u64), GrawFrameError> {
-    match take::<usize, &[u8], nom::error::Error<&[u8]>>(4usize)(buffer) {
-        Ok((buf_slice, word)) => {
-            let mut full_word: [u8; 8] = [0, 0, 0, 0, 0, 0, 0, 0];
-            for i in 0..4 {
-                full_word[i] = word[i]
-            }
-            return Ok((buf_slice, u64::from_be_bytes(full_word)));
-        }
-        Err(_) => Err(GrawFrameError::ParsingError)
-    }
-}
-
-fn parse_bitsets(buffer: &[u8]) -> Result<(&[u8], Vec<BitVec<u8>>), GrawFrameError> {
+fn parse_bitsets(cursor: &mut Cursor<Vec<u8>>) -> Result<Vec<BitVec<u8>>, GrawFrameError> {
 
     let mut sets: Vec<BitVec<u8>> = Vec::with_capacity(4);
     let mut storage_index: usize;
-    let mut buf_slice: &[u8] = buffer;
     let mut byte: u8;
     for _ in 0..4 {
         let mut aget_bits = bitvec![u8, Lsb0; 0; SIZE_OF_BITSET];
         for index in (0..9).rev() {
             storage_index = 8 - index;
-            (buf_slice, byte) = parse_u8(buf_slice)?;
-            aget_bits[storage_index..=(storage_index+8)].store(byte);
+            byte = cursor.read_u8()?;
+            aget_bits[storage_index..(storage_index+8)].store(byte);
         }
         sets.push(aget_bits);
     }
 
-    return Ok((buf_slice, sets));
+    return Ok(sets);
 }
 
-fn parse_multiplicity(buffer: &[u8]) -> Result<(&[u8], Vec<u16>), GrawFrameError> {
+fn parse_multiplicity(cursor: &mut Cursor<Vec<u8>>) -> Result<Vec<u16>, GrawFrameError> {
     let mut mults: Vec<u16> = Vec::with_capacity(4);
     let mut mult: u16;
-    let mut buf_slice: &[u8] = buffer;
     for _ in 0..4 {
-        (buf_slice, mult) = parse_u16(buf_slice)?;
+        mult = cursor.read_u16::<BigEndian>()?;
         mults.push(mult);
     }
 
-    return Ok((buf_slice, mults));
+    return Ok(mults);
 }
 
 /*
@@ -162,43 +118,42 @@ impl GrawFrameHeader {
         if self.frame_size * SIZE_UNIT != buffer_length {
             return Err(GrawFrameError::IncorrectFrameSize(self.frame_size, buffer_length))
         }
-        if self.frame_type != EXPECTED_FRAME_TYPE_FULL || self.frame_type != EXPECTED_FRAME_TYPE_PARTIAL {
+        if self.frame_type != EXPECTED_FRAME_TYPE_FULL && self.frame_type != EXPECTED_FRAME_TYPE_PARTIAL {
             return Err(GrawFrameError::IncorrectFrameType(self.frame_type));
         }
         if self.header_size != EXPECTED_HEADER_SIZE {
             return Err(GrawFrameError::IncorrectHeaderSize(self.header_size))
         }
-        if (self.frame_type == EXPECTED_FRAME_TYPE_FULL && self.item_size != EXPECTED_ITEM_SIZE_FULL) || 
-            (self.frame_type == EXPECTED_FRAME_TYPE_PARTIAL && self.item_size != EXPECTED_ITEM_SIZE_FULL)
-        {
+        if self.frame_type == EXPECTED_FRAME_TYPE_FULL && self.item_size != EXPECTED_ITEM_SIZE_FULL {
+            return Err(GrawFrameError::IncorrectItemSize(self.item_size));
+        } else if self.frame_type == EXPECTED_FRAME_TYPE_PARTIAL && self.item_size != EXPECTED_ITEM_SIZE_PARTIAL {
             return Err(GrawFrameError::IncorrectItemSize(self.item_size));
         }
-        let expected_n_items = (((self.frame_size - self.header_size as u32) as f64) / (SIZE_UNIT as f64)).ceil() as u32;
-        if self.n_items != expected_n_items {
-            return Err(GrawFrameError::IncorrectNumberOfItems(self.n_items, expected_n_items))
+        let calc_frame_size = (((self.n_items as f64) * (self.item_size as f64) + (self.header_size as f64) * (SIZE_UNIT as f64)) / (SIZE_UNIT as f64)).ceil() as u32;
+        if self.frame_size != calc_frame_size {
+            return Err(GrawFrameError::IncorrectNumberOfItems(self.frame_size, calc_frame_size))
         }
         Ok(())
     }
 
-    pub fn read_from_buffer(buffer: &[u8]) -> Result<(&[u8], GrawFrameHeader), GrawFrameError> {
-        let mut buf_slice: &[u8] = buffer;
+    pub fn read_from_buffer(cursor: &mut Cursor<Vec<u8>>) -> Result<GrawFrameHeader, GrawFrameError> {
         let mut header = GrawFrameHeader::default();
-        (buf_slice, header.meta_type) = parse_u8(buf_slice)?;
-        (buf_slice, header.frame_size) = parse_u24_to_u32(buf_slice)?; //Obnoxious. Actually a 24 bit word
-        (buf_slice, header.data_source) = parse_u8(buf_slice)?;
-        (buf_slice, header.frame_type) = parse_u16(buf_slice)?;
-        (buf_slice, header.revision) = parse_u8(buf_slice)?;
-        (buf_slice, header.header_size) = parse_u16(buf_slice)?;
-        (buf_slice, header.item_size) = parse_u16(buf_slice)?;
-        (buf_slice, header.n_items) = parse_u32(buf_slice)?;
-        (buf_slice, header.event_time) = parse_u48_to_u64(buf_slice)?; //Obnoxious. Actually a 48 bit word
-        (buf_slice, header.event_id) = parse_u32(buf_slice)?;
-        (buf_slice, header.cobo_id) = parse_u8(buf_slice)?;
-        (buf_slice, header.asad_id) = parse_u8(buf_slice)?;
-        (buf_slice, header.read_offset) = parse_u16(buf_slice)?;
-        (buf_slice, header.status) = parse_u8(buf_slice)?;
+        header.meta_type = cursor.read_u8()?;
+        header.frame_size = cursor.read_u24::<BigEndian>()?; //Obnoxious. Actually a 24 bit word
+        header.data_source = cursor.read_u8()?;
+        header.frame_type = cursor.read_u16::<BigEndian>()?;
+        header.revision = cursor.read_u8()?;
+        header.header_size = cursor.read_u16::<BigEndian>()?;
+        header.item_size = cursor.read_u16::<BigEndian>()?;
+        header.n_items = cursor.read_u32::<BigEndian>()?;
+        header.event_time = cursor.read_u48::<BigEndian>()?; //Obnoxious. Actually a 48 bit word
+        header.event_id = cursor.read_u32::<BigEndian>()?;
+        header.cobo_id = cursor.read_u8()?;
+        header.asad_id = cursor.read_u8()?;
+        header.read_offset = cursor.read_u16::<BigEndian>()?;
+        header.status = cursor.read_u8()?;
 
-        Ok((buf_slice, header))
+        Ok(header)
     }
 }
 
@@ -207,6 +162,7 @@ pub struct GrawFrame {
     pub header: GrawFrameHeader,
     hit_patterns: Vec<BitVec<u8>>,
     multiplicity: Vec<u16>,
+
     pub data: Vec<GrawData>
 }
 
@@ -214,20 +170,24 @@ impl TryFrom<Vec<u8>> for GrawFrame {
     type Error = GrawFrameError;
 
     fn try_from(buffer: Vec<u8>) -> Result<Self , Self::Error>{
-        let mut buf_slice = buffer.as_slice();
+        let buffer_length: u64 = buffer.len() as u64;
+        let mut cursor = Cursor::new(buffer);
 
         let mut frame = GrawFrame::new();
         
-        (buf_slice, frame.header) = GrawFrameHeader::read_from_buffer(buf_slice)?;
-        frame.header.check_header(buffer.len() as u32)?;
-        (buf_slice, frame.hit_patterns) = parse_bitsets(buf_slice)?;
-        (buf_slice, frame.multiplicity) = parse_multiplicity(buf_slice)?;
+        frame.header = GrawFrameHeader::read_from_buffer(&mut cursor)?;
+        frame.header.check_header(buffer_length as u32)?;
+        frame.hit_patterns = parse_bitsets(&mut cursor)?;
+        frame.multiplicity  = parse_multiplicity(&mut cursor)?;
+
+        cursor.set_position((frame.header.header_size as u32 * SIZE_UNIT) as u64);
+        let end_position = cursor.position() + (frame.header.n_items * frame.header.item_size as u32) as u64;
 
         if frame.header.frame_type == EXPECTED_FRAME_TYPE_PARTIAL {
-            frame.extract_partial_data(buf_slice)?;
+            frame.extract_partial_data(&mut cursor, end_position)?;
         }
         else if frame.header.frame_type == EXPECTED_FRAME_TYPE_FULL {
-            frame.extract_full_data(buf_slice)?;
+            frame.extract_full_data(&mut cursor, end_position)?;
         }
 
         Ok(frame)
@@ -240,17 +200,16 @@ impl GrawFrame {
         GrawFrame { header: GrawFrameHeader::default(), hit_patterns: vec![], multiplicity: vec![], data: vec![] }
     }
 
-    fn extract_partial_data(&mut self, buffer: &[u8]) -> Result<(), GrawFrameError> {
+    fn extract_partial_data(&mut self, cursor: &mut Cursor<Vec<u8>>, end_position: u64) -> Result<(), GrawFrameError> {
 
         let mut datum: GrawData;
-        let mut buf_slice = buffer;
         let mut raw: u32;
 
-        while buf_slice.len() != 0 {
+
+        while cursor.position() < end_position {
             datum = GrawData::default();
 
-
-            (buf_slice, raw) = parse_u32(buf_slice)?;
+            raw = cursor.read_u32::<BigEndian>()?;
             datum.aget_id = GrawFrame::extract_aget_id(&raw);
             datum.channel = GrawFrame::extract_channel(&raw);
             datum.time_bucket_id = GrawFrame::extract_time_bucket_id(&raw);
@@ -261,19 +220,22 @@ impl GrawFrame {
             self.data.push(datum);
         }
 
+        if self.data.len() != (self.header.n_items as usize) {
+            log::warn!("A frame was read with an incorrect number of items -- Expected: {}, Found: {}", self.header.n_items, self.data.len());
+        }
+
         Ok(())
     }
 
-    fn extract_full_data(&mut self, buffer: &[u8]) -> Result<(), GrawFrameError> {
+    fn extract_full_data(&mut self, cursor: &mut Cursor<Vec<u8>>, end_position: u64) -> Result<(), GrawFrameError> {
 
         let mut datum: GrawData;
         let mut raw: u16;
         let mut aget_counters: Vec<u64> = vec![0, 0, 0, 0];
-        let mut buf_slice = buffer;
 
-        while buffer.len() != 0 {
+        while cursor.position() < end_position {
             datum = GrawData::default();
-            (buf_slice, raw) = parse_u16(buf_slice)?;
+            raw = cursor.read_u16::<BigEndian>()?;
             datum.aget_id = GrawFrame::extract_aget_id_full(&raw);
             let aget_index: usize = datum.aget_id as usize;
             datum.sample = GrawFrame::extract_sample_full(&raw);

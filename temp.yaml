@@ -1,3 +1,4 @@
-graw_path: "/path/to/graw.graw"
-hdf_path: "/path/to/hdf.hdf"
-pad_map_path: "/path/to/pad/map.map"
+graw_path: "/Users/gordon/raw_data/e20009/"
+hdf_path: "/Users/gordon/hdf_data/e20009/"
+pad_map_path: "./etc/dummy_map.csv"
+run_number: 231

@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use ndarray::{Array1, Array2, s};
+use fxhash::FxHashMap;
 
 use super::error::EventError;
 use super::pad_map::{PadMap, HardwareID};
@@ -24,7 +24,7 @@ fn subtract_trace_baseline(trace: &mut Array1<i16>) {
 #[derive(Debug)]
 pub struct Event {
     nframes: i32,
-    traces: HashMap<HardwareID, Array1<i16>>, //maps pad id to the trace for that pad
+    traces: FxHashMap<HardwareID, Array1<i16>>, //maps pad id to the trace for that pad
     pub timestamp: u64,
     pub event_id: u32
 }
@@ -32,14 +32,12 @@ pub struct Event {
 impl Event {
 
     pub fn new(pad_map: &PadMap, frames: &Vec<GrawFrame>) -> Result<Self, EventError> {
-        let mut event = Event { nframes: 0, traces: HashMap::new(), timestamp: 0, event_id: 0 };
-
+        let mut event = Event { nframes: 0, traces: FxHashMap::default(), timestamp: 0, event_id: 0 };
         for frame in frames {
             event.append_frame(pad_map, frame)?;
         }
 
         event.subtract_fixed_pattern_noise(pad_map);
-
         Ok(event)
     }
 
@@ -68,8 +66,10 @@ impl Event {
             return Err(EventError::MismatchedEventID(frame.header.event_id, self.event_id));
         }
 
+
         let mut hw_id: &HardwareID;
         for datum in frame.data.iter() {
+            
             hw_id = match pad_map.get_hardware_id(&frame.header.cobo_id, &frame.header.asad_id, &datum.aget_id, &datum.channel) {
                 Some(hw) => hw,
                 None => {
@@ -77,8 +77,11 @@ impl Event {
                 }
             };
 
+
             match self.traces.get_mut(&hw_id) {
-                Some(trace) => trace[datum.time_bucket_id as usize] = datum.sample,
+                Some(trace) => {
+                    trace[datum.time_bucket_id as usize] = datum.sample;
+                }
                 None => {
                     let mut trace: Array1<i16> = Array1::<i16>::zeros(NUMBER_OF_TIME_BUCKETS as usize);
                     trace[datum.time_bucket_id as usize] = datum.sample;

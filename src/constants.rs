@@ -10,7 +10,7 @@ pub const SIZE_UNIT: u32 = 256;
 pub const SIZE_OF_BITSET: usize = 72;
 
 //Electronics constants
-pub const NUMBER_OF_COBOS: u8 = 10; //total
+pub const NUMBER_OF_COBOS: u8 = 11; //total
 pub const NUMBER_OF_ASADS: u8 = 4; //per cobo
 pub const NUMBER_OF_AGETS: u8 = 4; // per asad
 pub const NUMBER_OF_CHANNELS: u8 = 68;
