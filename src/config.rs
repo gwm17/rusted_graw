@@ -47,6 +47,15 @@ impl Config {
         }
     }
 
+    pub fn get_log_file_name(&self) -> Result<PathBuf, ConfigError> {
+        let log_file_path: PathBuf = self.hdf_path.join(format!("log_{}.txt", self.get_run_str()));
+        if self.hdf_path.exists() {
+            return Ok(log_file_path);
+        } else {
+            return Err(ConfigError::BadFilePath(self.hdf_path.clone()))
+        }
+    }
+
     fn get_run_str(&self) -> String {
         if self.run_number < 10 {
             return format!("run_000{}", self.run_number);

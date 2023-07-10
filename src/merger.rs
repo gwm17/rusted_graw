@@ -16,6 +16,7 @@ use super::error::MergerError;
 pub struct Merger {
     file_stacks: Vec<AsadStack>,
     current_event: u32,
+    total_data_size_bytes: u64,
 }
 
 impl Merger {
@@ -25,7 +26,8 @@ impl Merger {
 
         let mut merger = Merger {
             file_stacks: Vec::new(),
-            current_event: 0
+            current_event: 0,
+            total_data_size_bytes: 0,
         };
 
         //For every asad in every cobo, attempt to make a stack
@@ -50,6 +52,7 @@ impl Merger {
             return Err(MergerError::NoFilesError);
         }
 
+        merger.total_data_size_bytes = merger.file_stacks.iter().fold(0, |sum, stack| sum + stack.get_stack_size_bytes());
         Ok(merger)
     }
 
@@ -81,6 +84,10 @@ impl Merger {
                 break Err(MergerError::EndOfMerge);
             }
         }
+    }
+
+    pub fn get_total_data_size(&self) -> &u64 {
+        &self.total_data_size_bytes
     }
 
 }

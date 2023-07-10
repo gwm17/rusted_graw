@@ -13,7 +13,8 @@ pub struct AsadStack {
     file_stack: VecDeque<PathBuf>,
     cobo_number: i32,
     asad_number: i32,
-    parent_path: PathBuf
+    parent_path: PathBuf,
+    total_stack_size_bytes: u64,
 }
 
 impl AsadStack {
@@ -21,9 +22,9 @@ impl AsadStack {
     pub fn new(data_path: &Path, cobo_number: i32, asad_number: i32) -> Result<Self, AsadStackError> {
         let parent_path = data_path.join(format!("mm{}", cobo_number));
 
-        let mut file_stack = Self::get_file_stack(&parent_path, &cobo_number, &asad_number)?;
+        let (mut file_stack, total_stack_size_bytes) = Self::get_file_stack(&parent_path, &cobo_number, &asad_number)?;
         if let Some(path) = file_stack.pop_front() {
-            Ok(AsadStack { active_file: GrawFile::new(&path)?, file_stack, cobo_number, asad_number, parent_path })
+            Ok(AsadStack { active_file: GrawFile::new(&path)?, file_stack, cobo_number, asad_number, parent_path, total_stack_size_bytes })
         } else {
             Err(AsadStackError::NoMatchingFiles)
         }
@@ -46,7 +47,11 @@ impl AsadStack {
         Ok(self.active_file.get_next_frame()?)
     }
 
-    fn get_file_stack(parent_path: &Path, cobo_number: &i32, asad_number: &i32) -> Result<VecDeque<PathBuf>, AsadStackError> {
+    pub fn get_stack_size_bytes(&self) -> &u64 {
+        &self.total_stack_size_bytes
+    }
+
+    fn get_file_stack(parent_path: &Path, cobo_number: &i32, asad_number: &i32) -> Result<(VecDeque<PathBuf>, u64), AsadStackError> {
         let stack: VecDeque<PathBuf>;
         let mut file_list: Vec<PathBuf> = Vec::new();
         let start_pattern = format!("CoBo{}_AsAd{}", *cobo_number, *asad_number);
@@ -63,10 +68,12 @@ impl AsadStack {
             return Err(AsadStackError::NoMatchingFiles);
         }
 
+        let total_stack_size_bytes = file_list.iter().fold(0, |sum, path| sum + path.metadata().unwrap().len());
+
         file_list.sort();
         stack = file_list.into();
 
-        return Ok(stack);
+        return Ok((stack, total_stack_size_bytes));
     }
 
     fn move_to_next_file(&mut self) -> Result<(), AsadStackError> {
