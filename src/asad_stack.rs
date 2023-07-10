@@ -47,23 +47,24 @@ impl AsadStack {
     }
 
     fn get_file_stack(parent_path: &Path, cobo_number: &i32, asad_number: &i32) -> Result<VecDeque<PathBuf>, AsadStackError> {
-        let mut stack: VecDeque<PathBuf> = VecDeque::new();
+        let stack: VecDeque<PathBuf>;
+        let mut file_list: Vec<PathBuf> = Vec::new();
         let start_pattern = format!("CoBo{}_AsAd{}", *cobo_number, *asad_number);
-        let mut frag_number = 0;
-        let mut end_pattern = format!("000{}.graw", frag_number);
+        let end_pattern = ".graw";
         for item in parent_path.read_dir()? {
             let item_path = item?.path();
             let item_path_str = item_path.to_str().unwrap();
             if item_path_str.contains(&start_pattern) && item_path_str.contains(&end_pattern) {
-                stack.push_back(item_path);
-                frag_number += 1;
-                end_pattern = format!("000{}.graw", frag_number);
+                file_list.push(item_path);
             }
         }
 
-        if stack.len() == 0 {
+        if file_list.len() == 0 {
             return Err(AsadStackError::NoMatchingFiles);
         }
+
+        file_list.sort();
+        stack = file_list.into();
 
         return Ok(stack);
     }

@@ -215,7 +215,13 @@ impl GrawFrame {
             datum.time_bucket_id = GrawFrame::extract_time_bucket_id(&raw);
             datum.sample = GrawFrame::extract_sample(&raw);
 
-            datum.check_data()?;
+            match datum.check_data() {
+                Ok(()) => (),
+                Err(e) => {
+                    log::warn!("Error received while parsing frame partial data: {}. This datum will not be recorded.", e);
+                    continue;
+                }
+            }
 
             self.data.push(datum);
         }
