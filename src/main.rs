@@ -9,90 +9,40 @@ mod event_builder;
 mod hdf_file;
 mod config;
 mod asad_stack;
+mod process;
 
 use std::path::PathBuf;
 use log::{error, info};
-use indicatif::{ProgressBar, ProgressStyle};
 
+use crate::process::process_run;
 use crate::hdf_file::HDFWriter;
 use crate::merger::Merger;
 use crate::event_builder::EventBuilder;
 use crate::pad_map::PadMap;
 use crate::config::Config;
-use crate::constants::SIZE_UNIT;
 
-fn flush_final_event(mut evb: EventBuilder, writer: HDFWriter) {
-    if let Some(event) = evb.flush_final_event() {
-        match writer.write_event(event) {
-            Ok(()) => (),
-            Err(e) => {
-                log::error!("HDFWriter recieved an error: {}", e);
-                return;
-            }
-        }
-    }
-}
-
-fn process_run(mut merger: Merger, mut evb: EventBuilder, writer: HDFWriter) {
-        let progress = ProgressBar::new(*merger.get_total_data_size());
-        let style = ProgressStyle::with_template("[{elapsed}] {bar:40.cyan/blue} {bytes}/{total_bytes} {msg}").unwrap();
-        progress.set_style(style);
-        let total_data_size = merger.get_total_data_size();
-        let flush_frac = 0.01;
-        let mut count =0;
-        let flush_val = (*total_data_size as f64 * flush_frac) as u64;
-        loop {
-            let frame = match merger.get_next_frame() {
-                Ok(f) => f,
-                Err(crate::error::MergerError::EndOfMerge) => {
-                    flush_final_event(evb, writer);
-                    break;
-                }
-                Err(e) => {
-                    println!("Merger error! Check log file for details.");
-                    log::error!("Merger recieved an error: {}", e);
-                    return;
-                }
-            };
-
-            //bleh
-            count += (frame.header.header_size as u32 * SIZE_UNIT + frame.header.n_items * frame.header.item_size as u32) as u64;
-            if count > flush_val {
-                progress.inc(count);
-                count = 0;
-            }
-
-            let maybe_event = match evb.append_frame(frame) {
-                Ok(Some(event)) => event,
-                Ok(None) => {
-                    continue;
-                }
-                Err(e) => {
-                    println!("Event builder error! Check log file for details.");
-                    log::error!("Event builder recieved an error: {}", e);
-                    return;
-                }
-            };
-
-            match writer.write_event(maybe_event) {
-                Ok(()) => (),
-                Err(e) => {
-                    println!("Writer error! Check log file for details.");
-                    log::error!("HDFWriter recieved an error: {}", e);
-                    return;
-                }
-            }
-        }
-
-        progress.finish();
-
-
+fn print_help_string() {
+    println!("----- rusted_graw -------");
+    println!("To run use the command below");
+    println!("cargo run --release <my_config.yaml>");
+    println!("Replace the <my_config.yaml> with the path to a configuration file.");
+    println!("See the README for more details on rusted_graw.");
 }
 
 #[allow(unreachable_code, dead_code)]
 fn main() {
-    //TEMP -- This is the basic configuration
-    let config_path = PathBuf::from("temp.yaml");
+
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() <= 1 {
+        print_help_string();
+        return;
+    } else if args[1] == "--help" {
+        print_help_string();
+        return;
+    }
+
+    let config_filestr = &args[1];
+    let config_path = PathBuf::from(config_filestr);
     let config = match Config::read_config_file(&config_path) {
         Ok(c) => c,
         Err(e) => {
@@ -164,7 +114,13 @@ fn main() {
     };
     info!("Merger ready. Running...\n");
 
-    process_run(merger, evb, writer);
+    match process_run(merger, evb, writer) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("An error occurred while processing! See the log for more info!");
+            error!("Error while processing: {}", e);
+        }
+    }
 
     info!("Done.\n");
 

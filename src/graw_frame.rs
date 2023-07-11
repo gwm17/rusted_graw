@@ -95,7 +95,7 @@ impl From<GrawFrameHeader> for FrameMetadata {
 #[derive(Debug, Clone, Default)]
 pub struct GrawFrameHeader {
     pub meta_type: u8, //set to 0x6 ?
-    pub frame_size: u32, //in 32-bit words
+    pub frame_size: u32, //in 256-bit words. Note that this can have some padding at the end
     pub data_source: u8,
     pub frame_type: u16,
     pub revision: u8,
@@ -107,7 +107,8 @@ pub struct GrawFrameHeader {
     pub cobo_id: u8,
     pub asad_id: u8,
     pub read_offset: u16,
-    pub status: u8
+    pub status: u8,
+    pub total_size_precise: u64 //Actual size of the header + gap + items
 }
 
 impl GrawFrameHeader {
@@ -152,7 +153,7 @@ impl GrawFrameHeader {
         header.asad_id = cursor.read_u8()?;
         header.read_offset = cursor.read_u16::<BigEndian>()?;
         header.status = cursor.read_u8()?;
-
+        header.total_size_precise = (header.header_size as u32 * SIZE_UNIT + header.n_items * header.item_size as u32) as u64;
         Ok(header)
     }
 }

@@ -15,6 +15,7 @@ pub struct AsadStack {
     asad_number: i32,
     parent_path: PathBuf,
     total_stack_size_bytes: u64,
+    is_ended: bool
 }
 
 impl AsadStack {
@@ -24,16 +25,19 @@ impl AsadStack {
 
         let (mut file_stack, total_stack_size_bytes) = Self::get_file_stack(&parent_path, &cobo_number, &asad_number)?;
         if let Some(path) = file_stack.pop_front() {
-            Ok(AsadStack { active_file: GrawFile::new(&path)?, file_stack, cobo_number, asad_number, parent_path, total_stack_size_bytes })
+            Ok(AsadStack { active_file: GrawFile::new(&path)?, file_stack, cobo_number, asad_number, parent_path, total_stack_size_bytes, is_ended: false })
         } else {
             Err(AsadStackError::NoMatchingFiles)
         }
     }
 
-    pub fn get_next_frame_metadata(&mut self) -> Result<FrameMetadata, AsadStackError> {
+    pub fn get_next_frame_metadata(&mut self) -> Result<Option<FrameMetadata>, AsadStackError> {
         loop {
+            if self.is_ended {
+                return Ok(None);
+            }
             match self.active_file.get_next_frame_metadata() {
-                Ok(meta) => return Ok(meta),
+                Ok(meta) => return Ok(Some(meta)),
                 Err(GrawFileError::EndOfFile) => {
                     self.move_to_next_file()?;
                     continue;
@@ -49,6 +53,10 @@ impl AsadStack {
 
     pub fn get_stack_size_bytes(&self) -> &u64 {
         &self.total_stack_size_bytes
+    }
+
+    pub fn is_not_ended(&self) -> bool {
+        !self.is_ended
     }
 
     fn get_file_stack(parent_path: &Path, cobo_number: &i32, asad_number: &i32) -> Result<(VecDeque<PathBuf>, u64), AsadStackError> {
@@ -86,7 +94,8 @@ impl AsadStack {
                 }
             }
             else {
-                return Err(AsadStackError::NoMoreFiles);
+                self.is_ended = true;
+                return Ok(());
             }
         }
     }

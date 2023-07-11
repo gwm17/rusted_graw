@@ -122,7 +122,6 @@ impl Error for GrawFileError {
 pub enum AsadStackError {
     IOError(std::io::Error),
     FileError(GrawFileError),
-    NoMoreFiles,
     NoMatchingFiles
 }
 
@@ -143,7 +142,6 @@ impl Display for AsadStackError {
         match self {
             Self::IOError(e) => write!(f, "AsadStack recieved an io error: {}", e),
             Self::FileError(e) => write!(f, "AsadStack recieved a file error: {}", e),
-            Self::NoMoreFiles => write!(f, "AsadStack doesn't have any files left!"),
             Self::NoMatchingFiles => write!(f, "AsadStack couldn't find any matching files!")
         }
     }
@@ -219,7 +217,6 @@ impl Error for EventError {
 #[derive(Debug)]
 pub enum MergerError {
     AsadError(AsadStackError),
-    EndOfMerge,
     NoFilesError,
     IOError(std::io::Error)
 }
@@ -240,7 +237,6 @@ impl Display for MergerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MergerError::AsadError(e) => write!(f, "A stack error occurred while merging! Error: {}", e),
-            MergerError::EndOfMerge => write!(f, "The merger has read all data in the associated files"),
             MergerError::NoFilesError => write!(f, "Merger could not find any files with .graw extension!"),
             MergerError::IOError(e) => write!(f, "The merger recieved an io error: {}", e)
         }
@@ -313,5 +309,44 @@ impl Display for ConfigError {
 }
 
 impl Error for ConfigError {
+
+}
+
+#[derive(Debug)]
+pub enum ProcessorError {
+    EVBError(EventBuilderError),
+    MergerError(MergerError),
+    HDFError(hdf5::Error)
+}
+
+impl From<MergerError> for ProcessorError {
+    fn from(value: MergerError) -> Self {
+        Self::MergerError(value)
+    }
+}
+
+impl From<EventBuilderError> for ProcessorError {
+    fn from(value: EventBuilderError) -> Self {
+        Self::EVBError(value)
+    }
+}
+
+impl From<hdf5::Error> for ProcessorError {
+    fn from(value: hdf5::Error) -> Self {
+        Self::HDFError(value)
+    }
+}
+
+impl Display for ProcessorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EVBError(e) => write!(f, "Processor failed at Event Builder with error: {}", e),
+            Self::MergerError(e) => write!(f, "Processor failed at Merger with error: {}", e),
+            Self::HDFError(e) => write!(f, "Processor failed at HDFWriter with error: {}", e)
+        }
+    }
+}
+
+impl Error for ProcessorError {
 
 }

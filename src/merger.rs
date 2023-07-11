@@ -15,7 +15,6 @@ use super::error::MergerError;
 #[derive(Debug)]
 pub struct Merger {
     file_stacks: Vec<AsadStack>,
-    current_event: u32,
     total_data_size_bytes: u64,
 }
 
@@ -26,7 +25,6 @@ impl Merger {
 
         let mut merger = Merger {
             file_stacks: Vec::new(),
-            current_event: 0,
             total_data_size_bytes: 0,
         };
 
@@ -56,33 +54,32 @@ impl Merger {
         Ok(merger)
     }
 
-    pub fn get_next_frame(&mut self) -> Result<GrawFrame, MergerError> {
-        let mut end_count: usize = 0;
-        loop  {
-            for stack in self.file_stacks.iter_mut() {
+    pub fn get_next_frame(&mut self) -> Result<Option<GrawFrame>, MergerError> {
+        let mut earliest_event_index: Option<(usize, u32)> = Option::None;
+        for (idx, stack) in self.file_stacks.iter_mut().enumerate() {
 
-                match stack.get_next_frame_metadata() {
-                    Ok(meta) => {
-                        if meta.event_id == self.current_event {
-                            return Ok(stack.get_next_frame()?);
+            if let Some(meta) = stack.get_next_frame_metadata()? {
+                match earliest_event_index {
+                    None => {
+                        earliest_event_index = Some((idx, meta.event_id));
+                    }
+                    Some((_index, event_id)) => {
+                        if meta.event_id < event_id {
+                            earliest_event_index = Some((idx, meta.event_id));
                         }
-                    }
-                    Err(AsadStackError::NoMoreFiles) => {
-                        //end_of_stack.push(idx);
-                        end_count += 1;
-                        continue;
-                    }
-                    Err(e) => {
-                        return Err(MergerError::AsadError(e));
                     }
                 }
             }
+        }
 
-            self.current_event += 1;
-
-            if end_count >= self.file_stacks.len() {
-                break Err(MergerError::EndOfMerge);
-            }
+        if earliest_event_index.is_none() {
+            return Ok(None);
+        } else {
+            //This MUST happen before the retain call. The indexes will be modified.
+            let frame = self.file_stacks[earliest_event_index.unwrap().0].get_next_frame()?;
+            //Only keep stacks which still have data to be read
+            self.file_stacks.retain(|stack| stack.is_not_ended());
+            return Ok(Some(frame));
         }
     }
 
