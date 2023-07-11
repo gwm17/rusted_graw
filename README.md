@@ -40,7 +40,6 @@ graw_path: "/path/to/graw/run/directory/"
 hdf_path: "/path/to/hdf/data/directory/"
 pad_map_path: "/path/to/pad/map.csv"
 run_number: 231
-
 ```
 
 Note that whitespaces, colons, and quotes are important, and that the names of the fields (i.e. `graw_path`) cannot be changed. Each field is outlined below
