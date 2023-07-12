@@ -1,6 +1,6 @@
 use indicatif::{ProgressBar, ProgressStyle};
 
-use crate::hdf_file::HDFWriter;
+use crate::hdf_writer::HDFWriter;
 use crate::merger::Merger;
 use crate::event_builder::EventBuilder;
 use crate::constants::SIZE_UNIT;

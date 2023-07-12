@@ -6,7 +6,7 @@ use std::io::Cursor;
 use super::constants::*;
 use super::error::{GrawFrameError, GrawDataError};
 
-//Data from a single time-bucket (sampled point along the waveform)
+/// Data from a single time-bucket (sampled point along the waveform)
 #[derive(Debug, Clone)]
 pub struct GrawData {
     pub aget_id: u8,
@@ -22,6 +22,7 @@ impl Default for GrawData {
 }
 
 impl GrawData {
+    /// Sanity checks
     pub fn check_data(&self) -> Result<(), GrawDataError> {
         if self.aget_id > NUMBER_OF_AGETS {
             return Err(GrawDataError::BadAgetID(self.aget_id));
@@ -36,10 +37,6 @@ impl GrawData {
         Ok(())
     }
 }
-
-/*x
-    Little parsing functions to handle big-endian 
- */
 
 fn parse_bitsets(cursor: &mut Cursor<Vec<u8>>) -> Result<Vec<BitVec<u8>>, GrawFrameError> {
 
@@ -70,10 +67,9 @@ fn parse_multiplicity(cursor: &mut Cursor<Vec<u8>>) -> Result<Vec<u16>, GrawFram
     return Ok(mults);
 }
 
-/*
-    FrameMetadata provides the graw file a way of querying the event (hardware-level)
-    information without accessing the entire frame
- */
+/// # FrameMetadata
+/// FrameMetadata provides the GrawFile a way of querying the event (hardware-level)
+/// information without accessing the entire frame
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct FrameMetadata {
     pub event_id: u32,
@@ -81,17 +77,15 @@ pub struct FrameMetadata {
 }
 
 impl From<GrawFrameHeader> for FrameMetadata {
+    /// Extract metadata from the header
     fn from(value: GrawFrameHeader) -> Self {
         FrameMetadata { event_id: value.event_id, event_time: value.event_time }
     }
 }
 
-/*
-    A GrawFrame is the representation of a single readout of an AsAd. Each readout contains
-    traces from the four AGET ASICS on the AsAd.
-    GrawFrames are composed with a GrawFrameHeader which contains metadata about the frame,
-    and an array of GrawData (the samples of the waveform)
- */
+/// # GrawFrameHeader
+/// GrawFrameHeaders contain the full metadata description of the GrawFrame. They are most commonly used to 
+/// know how large the total frame size is
 #[derive(Debug, Clone, Default)]
 pub struct GrawFrameHeader {
     pub meta_type: u8, //set to 0x6 ?
@@ -112,6 +106,7 @@ pub struct GrawFrameHeader {
 }
 
 impl GrawFrameHeader {
+    /// Sanity Checks
     pub fn check_header(&self, buffer_length: u32) -> Result<(), GrawFrameError> {
         if self.meta_type != EXPECTED_META_TYPE {
             return Err(GrawFrameError::IncorrectMetaType(self.meta_type));
@@ -137,6 +132,7 @@ impl GrawFrameHeader {
         Ok(())
     }
 
+    /// Extract the header from a buffer
     pub fn read_from_buffer(cursor: &mut Cursor<Vec<u8>>) -> Result<GrawFrameHeader, GrawFrameError> {
         let mut header = GrawFrameHeader::default();
         header.meta_type = cursor.read_u8()?;
@@ -158,18 +154,22 @@ impl GrawFrameHeader {
     }
 }
 
+/// # GrawFrame
+/// A GrawFrame is the basic data chunk of the .graw format. It contains the data from a AsAd on a CoBo for a specific
+/// event. GrawFrames are sized by 256 bit chunking. The header comprises one 256 bit chunks, and the body can contain several 256 bit chunks.
+/// ## Note
+/// Using 256 bit sizing is interesting because it often results in padding in both the body and the header.
 #[derive(Debug)]
 pub struct GrawFrame {
     pub header: GrawFrameHeader,
     hit_patterns: Vec<BitVec<u8>>,
     multiplicity: Vec<u16>,
-
     pub data: Vec<GrawData>
 }
 
 impl TryFrom<Vec<u8>> for GrawFrame {
     type Error = GrawFrameError;
-
+    /// Convert the given buffer into a GrawFrame
     fn try_from(buffer: Vec<u8>) -> Result<Self , Self::Error>{
         let buffer_length: u64 = buffer.len() as u64;
         let mut cursor = Cursor::new(buffer);
@@ -182,7 +182,7 @@ impl TryFrom<Vec<u8>> for GrawFrame {
         frame.multiplicity  = parse_multiplicity(&mut cursor)?;
 
         cursor.set_position((frame.header.header_size as u32 * SIZE_UNIT) as u64);
-        let end_position = cursor.position() + (frame.header.n_items * frame.header.item_size as u32) as u64;
+        let end_position = cursor.position() + (frame.header.n_items * frame.header.item_size as u32) as u64; // Dont read the padding! Use actual size from items
 
         if frame.header.frame_type == EXPECTED_FRAME_TYPE_PARTIAL {
             frame.extract_partial_data(&mut cursor, end_position)?;
@@ -197,10 +197,12 @@ impl TryFrom<Vec<u8>> for GrawFrame {
 
 impl GrawFrame {
 
+    /// Default constructor
     pub fn new() -> GrawFrame {
         GrawFrame { header: GrawFrameHeader::default(), hit_patterns: vec![], multiplicity: vec![], data: vec![] }
     }
 
+    /// Extract the data from the frame body. Idk what partial refers to here. Parsing done in 32-bit data words
     fn extract_partial_data(&mut self, cursor: &mut Cursor<Vec<u8>>, end_position: u64) -> Result<(), GrawFrameError> {
 
         let mut datum: GrawData;
@@ -234,6 +236,7 @@ impl GrawFrame {
         Ok(())
     }
 
+    /// Extract the data from the frame body. Idk what full refers to here. Parsing done in 16-bit data words
     fn extract_full_data(&mut self, cursor: &mut Cursor<Vec<u8>>, end_position: u64) -> Result<(), GrawFrameError> {
 
         let mut datum: GrawData;

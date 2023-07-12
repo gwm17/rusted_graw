@@ -5,10 +5,12 @@ use std::fs::File;
 
 use fxhash::FxHashMap;
 
-use super::error::PadMapError;
+use crate::error::PadMapError;
 
-const ENTRIES_PER_LINE: usize = 5;
+const ENTRIES_PER_LINE: usize = 5; //Number of elements in a single row in the CSV file
 
+/// # HardwareID
+/// HardwareID is a hashable wrapper around the full hardware address (including the pad number).
 #[derive(PartialEq, Eq, Debug, Clone)]
 pub struct HardwareID {
     pub cobo_id: usize,
@@ -32,21 +34,27 @@ impl HardwareID {
 
 impl Hash for HardwareID {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.pad_id.hash(state)
+        self.pad_id.hash(state) //Just use the pad number as it is unqiue by definition
     }
 }
 
-//Generate a unique id number for a given hardware location
+/// Generate a unique id number for a given hardware location
 fn generate_uuid(cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) -> u64 {
     return (*channel_id as u64) + (*aget_id as u64) * 100 + (*asad_id as u64) * 10_000 + (*cobo_id as u64) * 1_000_000;
 }
 
+/// # PadMap
+/// PadMap contains the mapping of the individual hardware identifiers (CoBo ID, AsAd ID, AGET ID, AGET channel) to AT-TPC pad number.
+/// This can change from experiment to experiment, so PadMap reads in a CSV file where each row contains 5 elements. The first four are the 
+/// hardware identifiers (in the order listed previously) and the fifth is the pad number. 
 #[derive(Debug, Clone, Default)]
 pub struct PadMap {
     map: FxHashMap<u64, HardwareID>
 }
 
 impl PadMap {
+
+    /// Create a new PadMap using the CSV file at the given path
     pub fn new(path: &Path) -> Result<Self, PadMapError> {
 
         let mut file = File::open(path)?;
@@ -84,6 +92,8 @@ impl PadMap {
         Ok(pm)
     }
 
+    /// Get the full HardwareID for a given set of hardware identifiers. If returns None the identifiers given do 
+    /// not exist in the map
     pub fn get_hardware_id(&self, cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) -> Option<&HardwareID> {
         let uuid = generate_uuid(cobo_id, asad_id, aget_id, channel_id);
         let val = self.map.get(&uuid);

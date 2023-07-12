@@ -8,10 +8,10 @@ use super::asad_stack::AsadStack;
 use super::graw_frame::GrawFrame;
 use super::error::MergerError;
 
-/*
-    Merger
-    One of the three workers which comprise the application. Merger essentially performs a merge-sort operation on the data files
- */
+/// # Merger
+/// Merger essentially performs a merge-sort operation on the data files, taking all of the separate
+/// data from the .graw files and zipping them into a single data stream which is sorted in time. 
+/// Currently uses EventID to decide the time of a frame, not the timestamp.
 #[derive(Debug)]
 pub struct Merger {
     file_stacks: Vec<AsadStack>,
@@ -20,7 +20,7 @@ pub struct Merger {
 
 impl Merger {
 
-    //Create a new merger. Requires the path to the graw data files, as well as the queue for transmitting frames
+    /// Create a new merger. Requires the path to the graw data files
     pub fn new(graw_dir: &Path) -> Result<Self, MergerError> {
 
         let mut merger = Merger {
@@ -54,6 +54,8 @@ impl Merger {
         Ok(merger)
     }
 
+    /// Asks the stacks for the next frame. Which ever stack has the earliest event, returns its frame.
+    /// Returns Result<Option<GrawFrame>>. If the Option is None, that means that there is no more data to be read from the stacks
     pub fn get_next_frame(&mut self) -> Result<Option<GrawFrame>, MergerError> {
         let mut earliest_event_index: Option<(usize, u32)> = Option::None;
         for (idx, stack) in self.file_stacks.iter_mut().enumerate() {
@@ -72,7 +74,7 @@ impl Merger {
             }
         }
 
-        if earliest_event_index.is_none() {
+        if earliest_event_index.is_none() { //None of the remaining stacks had data for us. We've read everything.
             return Ok(None);
         } else {
             //This MUST happen before the retain call. The indexes will be modified.
@@ -83,6 +85,7 @@ impl Merger {
         }
     }
 
+    /// Total size of the run in bytes
     pub fn get_total_data_size(&self) -> &u64 {
         &self.total_data_size_bytes
     }

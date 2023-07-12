@@ -6,7 +6,7 @@ mod graw_file;
 mod merger;
 mod pad_map;
 mod event_builder;
-mod hdf_file;
+mod hdf_writer;
 mod config;
 mod asad_stack;
 mod process;
@@ -15,7 +15,7 @@ use std::path::PathBuf;
 use log::{error, info};
 
 use crate::process::process_run;
-use crate::hdf_file::HDFWriter;
+use crate::hdf_writer::HDFWriter;
 use crate::merger::Merger;
 use crate::event_builder::EventBuilder;
 use crate::pad_map::PadMap;
