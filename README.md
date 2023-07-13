@@ -4,6 +4,10 @@ rusted_graw is a Rust event builder and data merger inspired by [graw-merger](ht
 
 ## Installation
 
+### Rust
+
+If you have not used Rust before, you will most likely need to install the Rust tool chain. See the [Rust docs](https://www.rust-lang.org/tools/install) for installation instructions.
+
 ### Platform Support
 
 rusted_graw aims to support Linux, MacOS, and Windows. Currently, rusted_graw has been tested and built successfully on Ubuntu 22.04 and MacOS 13 (Ventura).
