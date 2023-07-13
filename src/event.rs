@@ -6,6 +6,8 @@ use super::pad_map::{PadMap, HardwareID};
 use super::graw_frame::GrawFrame;
 use super::constants::*;
 
+const FPN_CHANNELS: [u8; 4] = [11, 22, 45, 56]; //From AGET docs
+
 /// Simple baseline subtraction for a trace
 fn subtract_trace_baseline(trace: &mut Array1<i16>) {
     let sum: i16 = trace.iter().sum();
@@ -60,6 +62,10 @@ impl Event {
         }
 
         return data_matrix;
+    }
+
+    pub fn get_header_array(&self) -> Array1<f64> {
+        ndarray::arr1(&[self.event_id as f64, self.timestamp as f64, self.timestamp as f64])
     }
 
     /// Add a frame to the event. Sanity checks can return errors
@@ -129,7 +135,6 @@ impl Event {
 
     /// Idk if this is even really used
     fn subtract_fixed_pattern_noise(&mut self, pad_map: &PadMap) {
-        const FPN_CHANNELS: [u8; 4] = [11, 22, 45, 56]; //From AGET docs
 
         for cb_id in 0..NUMBER_OF_COBOS {
             for ad_id in 0..NUMBER_OF_ASADS {
@@ -143,21 +148,25 @@ impl Event {
                         if let Some(n1) = self.get_trace_from_hardware_id(pad_map, &cb_id, &ad_id, &ag_id, &FPN_CHANNELS[0]) {
                             noise1_trace = n1;
                         } else {
+                            self.remove_fpn_channels(pad_map, &cb_id, &ad_id, &ag_id);
                             continue;
                         }
                         if let Some(n2) = self.get_trace_from_hardware_id(pad_map, &cb_id, &ad_id, &ag_id, &FPN_CHANNELS[1]) {
                             noise2_trace = n2;
                         } else {
+                            self.remove_fpn_channels(pad_map, &cb_id, &ad_id, &ag_id);
                             continue;
                         }
                         if let Some(n3) = self.get_trace_from_hardware_id(pad_map, &cb_id, &ad_id, &ag_id, &FPN_CHANNELS[2]) {
                             noise3_trace = n3;
                         } else {
+                            self.remove_fpn_channels(pad_map, &cb_id, &ad_id, &ag_id);
                             continue;
                         }
                         if let Some(n4) = self.get_trace_from_hardware_id(pad_map, &cb_id, &ad_id, &ag_id, &FPN_CHANNELS[3]) {
                             noise4_trace = n4;
                         } else {
+                            self.remove_fpn_channels(pad_map, &cb_id, &ad_id, &ag_id);
                             continue;
                         }
 
@@ -196,11 +205,15 @@ impl Event {
                     }
 
                     //Drop the fpn traces as we no longer need them
-                    for channel in FPN_CHANNELS {
-                        self.remove_trace(pad_map, &cb_id, &ad_id, &ag_id, &channel);
-                    }
+                    self.remove_fpn_channels(pad_map, &cb_id, &ad_id, &ag_id);
                 }
             }
+        }
+    }
+
+    fn remove_fpn_channels(&mut self, pad_map: &PadMap, cobo_id: &u8, asad_id: &u8, aget_id: &u8) {
+        for channel in FPN_CHANNELS {
+            self.remove_trace(pad_map, &cobo_id, &asad_id, &aget_id, &channel);
         }
     }
 

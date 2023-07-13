@@ -29,10 +29,14 @@ impl HDFWriter {
 
     /// Write an event, where the event is converted into a data matrix
     pub fn write_event(&self, event: Event) -> Result<(), hdf5::Error> {
-        let builder =  self.group.new_dataset_builder();
-        let event_id = event.event_id.to_string();
-        builder.with_data(&event.convert_to_data_matrix())
-                .create(event_id.as_str())?;
+        let header_builder =  self.group.new_dataset_builder();
+        let body_builder =  self.group.new_dataset_builder();
+        let event_body_name = format!("evt{}_data", event.event_id);
+        let event_header_name = format!("evt{}_header", event.event_id);
+        header_builder.with_data(&event.get_header_array())
+                .create(event_header_name.as_str())?;
+        body_builder.with_data(&event.convert_to_data_matrix())
+                .create(event_body_name.as_str())?;
         Ok(())
     }
 
