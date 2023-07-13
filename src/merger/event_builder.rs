@@ -1,8 +1,8 @@
 
-use crate::error::EventBuilderError;
-use crate::graw_frame::GrawFrame;
-use crate::event::Event;
-use crate::pad_map::PadMap;
+use super::error::EventBuilderError;
+use super::graw_frame::GrawFrame;
+use super::event::Event;
+use super::pad_map::PadMap;
 
 /// # EventBuilder
 /// EventBuilder takes GrawFrames and composes them into Events.

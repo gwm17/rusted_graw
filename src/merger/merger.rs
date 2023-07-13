@@ -1,8 +1,8 @@
 use std::path::Path;
 
 
-use crate::constants::{NUMBER_OF_COBOS, NUMBER_OF_ASADS};
-use crate::error::AsadStackError;
+use super::constants::{NUMBER_OF_COBOS, NUMBER_OF_ASADS};
+use super::error::AsadStackError;
 
 use super::asad_stack::AsadStack;
 use super::graw_frame::GrawFrame;

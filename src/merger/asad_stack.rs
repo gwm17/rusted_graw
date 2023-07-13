@@ -1,9 +1,9 @@
 use std::path::{PathBuf, Path};
 use std::collections::VecDeque;
 
-use crate::graw_file::GrawFile;
-use crate::error::{GrawFileError, AsadStackError};
-use crate::graw_frame::{GrawFrame, FrameMetadata};
+use super::graw_file::GrawFile;
+use super::error::{GrawFileError, AsadStackError};
+use super::graw_frame::{GrawFrame, FrameMetadata};
 
 /// # AsadStack
 /// AsadStack is representation of all of the files for a specific AsAd in a specific CoBo.

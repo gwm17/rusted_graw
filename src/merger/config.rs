@@ -1,7 +1,7 @@
 use std::path::{Path, PathBuf};
 use serde_derive::{Serialize, Deserialize};
 
-use crate::error::ConfigError;
+use super::error::ConfigError;
 
 /// # Config
 /// Structure representing the application configuration. Contains pathing and run information
@@ -50,16 +50,6 @@ impl Config {
             return Ok(hdf_file_path);
         } else {
             return Err(ConfigError::BadFilePath(self.hdf_path.clone()));
-        }
-    }
-
-    /// Construct the log file name
-    pub fn get_log_file_name(&self) -> Result<PathBuf, ConfigError> {
-        let log_file_path: PathBuf = self.hdf_path.join(format!("log_{}.txt", self.get_run_str()));
-        if self.hdf_path.exists() {
-            return Ok(log_file_path);
-        } else {
-            return Err(ConfigError::BadFilePath(self.hdf_path.clone()))
         }
     }
 

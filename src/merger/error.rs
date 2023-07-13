@@ -316,7 +316,9 @@ impl Error for ConfigError {
 pub enum ProcessorError {
     EVBError(EventBuilderError),
     MergerError(MergerError),
-    HDFError(hdf5::Error)
+    HDFError(hdf5::Error),
+    ConfigError(ConfigError),
+    MapError(PadMapError)
 }
 
 impl From<MergerError> for ProcessorError {
@@ -337,12 +339,26 @@ impl From<hdf5::Error> for ProcessorError {
     }
 }
 
+impl From<ConfigError> for ProcessorError {
+    fn from(value: ConfigError) -> Self {
+        Self::ConfigError(value)
+    }
+}
+
+impl From<PadMapError> for ProcessorError {
+    fn from(value: PadMapError) -> Self {
+        Self::MapError(value)
+    }
+}
+
 impl Display for ProcessorError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::EVBError(e) => write!(f, "Processor failed at Event Builder with error: {}", e),
             Self::MergerError(e) => write!(f, "Processor failed at Merger with error: {}", e),
-            Self::HDFError(e) => write!(f, "Processor failed at HDFWriter with error: {}", e)
+            Self::HDFError(e) => write!(f, "Processor failed at HDFWriter with error: {}", e),
+            Self::ConfigError(e) => write!(f, "Processor failed due to Configuration error: {}", e),
+            Self::MapError(e) => write!(f, "Processor failed due to PadMap error: {}", e)
         }
     }
 }

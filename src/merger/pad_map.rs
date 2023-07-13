@@ -5,7 +5,7 @@ use std::fs::File;
 
 use fxhash::FxHashMap;
 
-use crate::error::PadMapError;
+use super::error::PadMapError;
 
 const ENTRIES_PER_LINE: usize = 5; //Number of elements in a single row in the CSV file
 

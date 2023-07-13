@@ -1,7 +1,7 @@
 use std::path::Path;
 use hdf5::File;
 
-use crate::event::Event;
+use super::event::Event;
 
 const GROUP_NAME: &str = "get";
 

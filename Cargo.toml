@@ -9,10 +9,12 @@ edition = "2021"
 bit-set = "0.5.3"
 bitvec = "1.0.1"
 byteorder = "1.4.3"
+eframe = "0.22.0"
 fxhash = "0.2.1"
 hdf5 = { git = "https://github.com/aldanor/hdf5-rust.git" }
-indicatif = "0.17.5"
+human_bytes = "0.4.2"
 log = "0.4.19"
+native-dialog = { version = "0.6.4", features = ["windows_dpi_awareness"] }
 ndarray = "0.15.6"
 serde = "1.0.166"
 serde_derive = "1.0.166"
