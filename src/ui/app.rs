@@ -10,20 +10,25 @@ use eframe::egui::{RichText, Color32};
 use crate::merger::config::Config;
 use crate::merger::error::ProcessorError;
 
+
+/// # MergerApp
+/// The UI app which inherits the eframe::App trait. The parent for all processing.
 #[derive(Debug)]
 pub struct MergerApp {
-    progress: Arc<Mutex<f32>>,
-    is_running: Arc<AtomicBool>,
+    progress: Arc<Mutex<f32>>, //progress bar updating
+    is_running: Arc<AtomicBool>, //flag for if the thread should be joined
     config: Config,
-    worker: Option<JoinHandle<Result<(), ProcessorError>>>
+    worker: Option<JoinHandle<Result<(), ProcessorError>>> //processing thread
 }
 
 impl MergerApp {
 
+    /// Startup the application
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
         MergerApp { progress: Arc::new(Mutex::new(0.0)), is_running: Arc::new(AtomicBool::new(false)), config: Config::default(), worker: None }
     }
 
+    /// Start a processor
     fn start_worker(&mut self) {
         if self.worker.is_none() && !self.is_running.load(SeqCst) {
 
@@ -40,6 +45,7 @@ impl MergerApp {
         }
     }
 
+    /// Stop the processor
     fn stop_worker(&mut self) {
         if let Some(handle) = self.worker.take() {
             match handle.join() {
@@ -79,6 +85,7 @@ impl MergerApp {
 }
 
 impl eframe::App for MergerApp {
+
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         
         eframe::egui::CentralPanel::default().show(ctx, |ui| {
@@ -92,9 +99,6 @@ impl eframe::App for MergerApp {
                     {
                         self.read_config(&path);
                     }
-                    else {
-                        log::error!("File dialog error at OpenConfig!");
-                    }
                 }
                 if ui.button("Save...").clicked() {
                     if let Ok(Some(path)) = native_dialog::FileDialog::new()
@@ -103,9 +107,6 @@ impl eframe::App for MergerApp {
                     .show_save_single_file()
                     {
                         self.write_config(&path);
-                    }
-                    else {
-                        log::error!("File dialog error at SaveConfig!");
                     }
                 }
             });
@@ -123,9 +124,6 @@ impl eframe::App for MergerApp {
                     {
                         self.config.graw_path = path;
                     }
-                    else {
-                        log::error!("File dialog error at open GRAW directory!")
-                    }
                 }
                 ui.end_row();
 
@@ -137,9 +135,6 @@ impl eframe::App for MergerApp {
                                             .show_open_single_dir()
                     {
                         self.config.graw_path = path;
-                    }
-                    else {
-                        log::error!("File dialog error at open HDF5 directory!")
                     }
                 }
                 ui.end_row();
@@ -154,9 +149,6 @@ impl eframe::App for MergerApp {
                     {
                         self.config.pad_map_path = path;
                     }
-                    else {
-                        log::error!("File dialog error at open PadMap file!");
-                    }
                 }
                 ui.end_row();
 
@@ -165,15 +157,7 @@ impl eframe::App for MergerApp {
             });
 
             //Controls
-            ui.separator();
-            ui.label("Progress");
-            ui.add(
-                eframe::egui::widgets::ProgressBar::new(match self.progress.lock() {
-                    Ok(x) => *x,
-                    Err(_) => 0.0,
-                })
-                .show_percentage()
-            );
+            // You can only click run if there isn't already someone working
             if ui.add_enabled(self.worker.is_none(), eframe::egui::Button::new("Run")).clicked() {
                 log::info!("Starting processor...");
                 self.start_worker();
@@ -181,6 +165,18 @@ impl eframe::App for MergerApp {
             else if !self.is_running.load(SeqCst) {
                 self.stop_worker();
             }
+
+            //Progress Bar
+            ui.separator();
+            ui.label(RichText::new("Progress").color(Color32::LIGHT_BLUE).size(18.0));
+            ui.add(
+                eframe::egui::widgets::ProgressBar::new(match self.progress.lock() {
+                    Ok(x) => *x,
+                    Err(_) => 0.0,
+                })
+                .show_percentage()
+            );
+            
 
             ctx.request_repaint_after(std::time::Duration::from_secs(1));
         });

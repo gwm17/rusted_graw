@@ -23,9 +23,12 @@ Before building and running rusted_graw, HDF5 must be installed. Typically this 
 ```[toml]
 [env]
 HDF5_DIR="/path/to/my/hdf5/install/"
+
+[build]
+rustflags="-C link-args=-Wl,-rpath,/path/to/my/hdf5/install/lib"
 ```
 
-Replace `/path/to/my/hdf5/install/` with the path to your HDF5 installation. Note that you will need to create the `.cargo` directory and the `config.toml` file.
+Replace `/path/to/my/hdf5/install/` with the path to your HDF5 installation. The extra build command assumes that the hdf5 files are not installed to the normal library search path of your operating sytsem. Note that you will need to create the `.cargo` directory and the `config.toml` file.
 
 ### Building
 
@@ -33,27 +36,20 @@ To build rusted_graw simply run `cargo build --release` from the rusted_graw rep
 
 ### Running
 
-To run rusted_graw use `cargo run --release <my_config.yaml>` from the rusted_graw repository, where `my_config.yaml` is a configuration file specifying details to the application. See the below section for information on the different fields. An example configuration is given in `temp.yaml`.
+To run rusted_graw use `cargo run --release` from the rusted_graw repository. This will spawn the rusted_graw UI. Additionally, rusted_graw will log information to the terminal.
 
 ## Configuration
 
-Application configurations are specified using YAML files. A rusted_graw configuration looks like the following:
+The rusted_graw UI has 4 input fields that the user needs to fill out to process a run:
 
-```[yaml]
-graw_path: "/path/to/graw/run/directory/"
-hdf_path: "/path/to/hdf/data/directory/"
-pad_map_path: "/path/to/pad/map.csv"
-run_number: 231
-```
+- GRAW directory: Specifies the full-path to a directory which contains the AT-TPC graw structure (i.e. contains subdirectories of the run_# format)
+- HDF5 directory: Specifies the full-path to a directory to which hdf5 (.h5) files will be written
+- Pad map: Specifies the full path to a CSV file which contains the mapping information for AT-TPC pads and electronics
+- Run Number: Which run should be processed
 
-Note that whitespaces, colons, and quotes are important, and that the names of the fields (i.e. `graw_path`) cannot be changed. Each field is outlined below
-
-- graw_path: Specifies the full-path to a directory which contains the AT-TPC graw structure (i.e. contains subdirectories of the run_# format)
-- hdf_path: Specifies the full-path to a directory to which hdf5 (.h5) files will be written, as well as associated log files
-- pad_map_path: Specifies the full path to a CSV file which contains the mapping information for AT-TPC pads and electronics
-- run_number: Which run should be processed
-
-For convience, an example configuration file (`temp.yaml`) is included with the repository.
+The configuration can be saved (to a .yaml format) using File -> Save...
+Configuration files can be loaded using File -> Open...
+Using the Open buttons next to the directory/file fields will bring up a file dialog for those elements
 
 ## Output
 
@@ -64,8 +60,9 @@ rusted_graw will output two files: the final resulting HDF5 data file, and a log
 The data format used in the HDF5 data is as follows:
 
 - All data is within the Group named "get"
-- Each event corresponds to it's own Dataset within the group. The Datasets are named by event number (i.e. event 101 corresponds to Dataset 101).
-- Each Dataset contains a two dimensional matrix of traces. Each row contains the data for a single trace from a pad in AT-TPC. The first five elements of the row contain the electronic address of the the pad (CoBo, AsAd, AGET, Channel, Pad in that order); the remaining 512 elements contain the trace data.
+- Each event has two Datasets. One is "evt#_data" and one is "evt#_header". The Datasets are named by event number (i.e. event 101 corresponds to Dataset evt101_data).
+- The "header" Datasets contain metadata about the event (number and timestamp).
+- Each "data" Dataset contains a two dimensional matrix of traces. Each row contains the data for a single trace from a pad in AT-TPC. The first five elements of the row contain the electronic address of the the pad (CoBo, AsAd, AGET, Channel, Pad in that order); the remaining 512 elements contain the trace data.
 - Traces are stored in random order. That is, the Dataset matrix rows are not sorted by electronic address.
 
 ### Trace Analysis
