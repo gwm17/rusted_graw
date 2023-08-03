@@ -134,7 +134,7 @@ impl eframe::App for MergerApp {
                                             .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
                                             .show_open_single_dir()
                     {
-                        self.config.graw_path = path;
+                        self.config.hdf_path = path;
                     }
                 }
                 ui.end_row();

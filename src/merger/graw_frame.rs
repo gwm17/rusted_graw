@@ -158,7 +158,7 @@ impl GrawFrameHeader {
 /// A GrawFrame is the basic data chunk of the .graw format. It contains the data from a AsAd on a CoBo for a specific
 /// event. GrawFrames are sized by 256 bit chunking. The header comprises one 256 bit chunks, and the body can contain several 256 bit chunks.
 /// ## Note
-/// Using 256 bit sizing is interesting because it often results in padding in both the body and the header.
+/// Using 256 bit sizing is interesting because it often results in padding in both the body and the header. (It is done for performance reasons in the acquisition)
 #[derive(Debug)]
 pub struct GrawFrame {
     pub header: GrawFrameHeader,
