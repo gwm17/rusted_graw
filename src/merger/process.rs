@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
 
 use super::hdf_writer::HDFWriter;
 use super::pad_map::PadMap;
@@ -17,8 +16,7 @@ fn flush_final_event(mut evb: EventBuilder, writer: HDFWriter) -> Result<(), hdf
     }
 }
 
-pub fn process_run(config: Config, progress: Arc<Mutex<f32>>, is_running: Arc<AtomicBool>) -> Result<(), ProcessorError> {
-    is_running.store(true, SeqCst);
+pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), ProcessorError> {
 
     let run_path = config.get_run_directory()?;
     let hdf_path = config.get_hdf_file_name()?;
@@ -61,7 +59,6 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>, is_running: Arc<At
             break;
         }
     }
-    is_running.store(false, SeqCst);
 
     return Ok(())
 }

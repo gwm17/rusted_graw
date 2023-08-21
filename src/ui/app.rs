@@ -1,5 +1,4 @@
 use std::sync::{Arc, Mutex};
-use std::sync::atomic::{AtomicBool, Ordering::SeqCst};
 use std::thread::JoinHandle;
 use std::path::Path;
 use std::fs::File;
@@ -16,7 +15,6 @@ use crate::merger::error::ProcessorError;
 #[derive(Debug)]
 pub struct MergerApp {
     progress: Arc<Mutex<f32>>, //progress bar updating
-    is_running: Arc<AtomicBool>, //flag for if the thread should be joined
     config: Config,
     worker: Option<JoinHandle<Result<(), ProcessorError>>> //processing thread
 }
@@ -25,23 +23,22 @@ impl MergerApp {
 
     /// Startup the application
     pub fn new(_cc: &eframe::CreationContext<'_>) -> Self {
-        MergerApp { progress: Arc::new(Mutex::new(0.0)), is_running: Arc::new(AtomicBool::new(false)), config: Config::default(), worker: None }
+        MergerApp { progress: Arc::new(Mutex::new(0.0)), config: Config::default(), worker: None }
     }
 
     /// Start a processor
     fn start_worker(&mut self) {
-        if self.worker.is_none() && !self.is_running.load(SeqCst) {
+        if self.worker.is_none() {
 
             let prog = self.progress.clone();
             let conf = self.config.clone();
-            let flag = self.is_running.clone();
             if let Ok(mut counter) = self.progress.lock() {
                 *counter = 0.0;
             } else {
                 println!("Sync error! Progress could not be reset!");
             }
 
-            self.worker = Some(std::thread::spawn(|| crate::merger::process::process_run(conf, prog, flag)))
+            self.worker = Some(std::thread::spawn(|| crate::merger::process::process_run(conf, prog)))
         }
     }
 
@@ -162,9 +159,6 @@ impl eframe::App for MergerApp {
                 log::info!("Starting processor...");
                 self.start_worker();
             }
-            // else if !self.is_running.load(SeqCst) || (self.worker.is_some() && self.worker.as_ref().unwrap().is_finished()){
-            //     self.stop_worker();
-            // }
             else {
                 match self.worker.as_ref() {
                     Some(worker) => {
