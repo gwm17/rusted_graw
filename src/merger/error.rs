@@ -39,7 +39,6 @@ pub enum GrawFrameError {
     IncorrectFrameType(u16),
     IncorrectHeaderSize(u16),
     IncorrectItemSize(u16),
-    IncorrectNumberOfItems(u32, u32),
     BadDatum(GrawDataError)
 }
 
@@ -64,7 +63,6 @@ impl Display for GrawFrameError {
             GrawFrameError::IncorrectFrameType(t) => write!(f, "Incorrect frame type found for GrawFrame! Found: {}, Expected: {} or {}", t, EXPECTED_FRAME_TYPE_FULL, EXPECTED_FRAME_TYPE_PARTIAL),
             GrawFrameError::IncorrectHeaderSize(s) => write!(f, "Incorrect header size found for GrawFrame! Found: {}, Expected: {}", s, EXPECTED_HEADER_SIZE),
             GrawFrameError::IncorrectItemSize(s) => write!(f, "Incorrect item size found for GrawFrame! Found: {}, Expected: {} or {}", s, EXPECTED_ITEM_SIZE_FULL, EXPECTED_ITEM_SIZE_PARTIAL),
-            GrawFrameError::IncorrectNumberOfItems(s, cs) => write!(f, "Incorrect number of items in GrawFrame! Header frame size: {}, Calculated frame size: {}", s, cs),
             GrawFrameError::BadDatum(e) => write!(f, "Bad datum found in GrawFrame! Error: {}", e)
         }
     }

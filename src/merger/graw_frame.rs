@@ -107,7 +107,7 @@ pub struct GrawFrameHeader {
 
 impl GrawFrameHeader {
     /// Sanity Checks
-    pub fn check_header(&self, buffer_length: u32) -> Result<(), GrawFrameError> {
+    pub fn check_header(&mut self, buffer_length: u32) -> Result<(), GrawFrameError> {
         if self.meta_type != EXPECTED_META_TYPE {
             return Err(GrawFrameError::IncorrectMetaType(self.meta_type));
         }
@@ -127,7 +127,9 @@ impl GrawFrameHeader {
         }
         let calc_frame_size = (((self.n_items as f64) * (self.item_size as f64) + (self.header_size as f64) * (SIZE_UNIT as f64)) / (SIZE_UNIT as f64)).ceil() as u32;
         if self.frame_size != calc_frame_size {
-            return Err(GrawFrameError::IncorrectNumberOfItems(self.frame_size, calc_frame_size))
+            log::warn!("When checking header for event {} for CoBo {} AsAd {}, the calculated size of the frame {} did not match the reported size {} of the frame! Defaulting to the reported size.",
+            self.event_id, self.cobo_id, self.asad_id, self.frame_size, calc_frame_size);
+            self.n_items = (self.frame_size as u32 * SIZE_UNIT - self.header_size as u32 * SIZE_UNIT) / self.item_size as u32;
         }
         Ok(())
     }

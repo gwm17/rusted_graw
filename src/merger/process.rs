@@ -23,7 +23,7 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>, is_running: Arc<At
     let run_path = config.get_run_directory()?;
     let hdf_path = config.get_hdf_file_name()?;
 
-    log::info!("Configuration parsed.\n GRAW run path: {}\n HDF file path: {}\n Pad map file path: {}\n", run_path.display(), hdf_path.display(), config.pad_map_path.display());
+    log::info!("Configuration parsed.\n GRAW run path: {}\n HDF file path: {}\n Pad map file path: {}", run_path.display(), hdf_path.display(), config.pad_map_path.display());
 
     let pad_map = PadMap::new(&config.pad_map_path)?;
 

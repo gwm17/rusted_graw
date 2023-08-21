@@ -162,8 +162,18 @@ impl eframe::App for MergerApp {
                 log::info!("Starting processor...");
                 self.start_worker();
             }
-            else if !self.is_running.load(SeqCst) {
-                self.stop_worker();
+            // else if !self.is_running.load(SeqCst) || (self.worker.is_some() && self.worker.as_ref().unwrap().is_finished()){
+            //     self.stop_worker();
+            // }
+            else {
+                match self.worker.as_ref() {
+                    Some(worker) => {
+                        if worker.is_finished() {
+                            self.stop_worker()
+                        }
+                    }
+                    None => ()
+                }
             }
 
             //Progress Bar
