@@ -81,13 +81,29 @@ impl AsadStack {
         &self.total_stack_size_bytes
     }
 
+    pub fn get_cobo_number(&self) -> &i32 {
+        &self.cobo_number
+    }
+
+    pub fn get_asad_number(&self) -> &i32 {
+        &self.asad_number
+    }
+
+    pub fn get_file_stack_ref(&self) -> &VecDeque<PathBuf> {
+        &self.file_stack
+    }
+
+    pub fn get_active_file(&self) -> &GrawFile {
+        &self.active_file
+    }
+
     /// Returns true if there is still data to be read from this stack. Returns false if the stack is finished.
     pub fn is_not_ended(&self) -> bool {
         !self.is_ended
     }
 
     /// Go get the files
-    fn get_file_stack(parent_path: &Path, cobo_number: &i32, asad_number: &i32) -> Result<(VecDeque<PathBuf>, u64), AsadStackError> {
+    pub fn get_file_stack(parent_path: &Path, cobo_number: &i32, asad_number: &i32) -> Result<(VecDeque<PathBuf>, u64), AsadStackError> {
         let stack: VecDeque<PathBuf>;
         let mut file_list: Vec<PathBuf> = Vec::new();
         let start_pattern = format!("CoBo{}_AsAd{}", *cobo_number, *asad_number);

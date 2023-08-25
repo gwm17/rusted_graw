@@ -88,6 +88,10 @@ impl GrawFile {
         &self.file_path
     }
 
+    pub fn get_size_bytes(&self) -> u64 {
+        self.size_bytes
+    }
+
     /// Peek at the header of the next frame to extract sizing information or metadata
     /// This resets the file stream to the position at the start of the header, as the read of the frame includes
     /// reading the header

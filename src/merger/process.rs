@@ -8,7 +8,7 @@ use super::constants::SIZE_UNIT;
 use super::error::ProcessorError;
 use super::config::Config;
 
-fn flush_final_event(mut evb: EventBuilder, writer: HDFWriter) -> Result<(), hdf5::Error> {
+fn flush_final_event(mut evb: EventBuilder, mut writer: HDFWriter) -> Result<(), hdf5::Error> {
     if let Some(event) = evb.flush_final_event() {
         writer.write_event(event)
     } else {
@@ -29,7 +29,7 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
     let mut merger = Merger::new(&run_path)?;
     log::info!("Total run size: {}", human_bytes::human_bytes(*merger.get_total_data_size() as f64));
     let mut evb = EventBuilder::new(pad_map);
-    let writer = HDFWriter::new(&hdf_path)?;
+    let mut writer = HDFWriter::new(&hdf_path)?;
 
 
     let total_data_size = merger.get_total_data_size();
@@ -38,6 +38,7 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
     let flush_val = (*total_data_size as f64 * flush_frac as f64) as u64;
 
     log::info!("Processing...");
+    writer.write_fileinfo(&merger);
     loop {
         if let Some(frame) = merger.get_next_frame()? { //Merger found a frame
             //bleh
@@ -55,6 +56,7 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
                 continue;
             }
         } else { //If the merger returns none, there is no more data to be read
+            writer.write_meta()?;
             flush_final_event(evb, writer)?;
             break;
         }

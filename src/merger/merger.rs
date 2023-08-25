@@ -90,4 +90,8 @@ impl Merger {
         &self.total_data_size_bytes
     }
 
+    pub fn get_file_stacks(&self) -> &Vec<AsadStack> {
+        &self.file_stacks
+    }
+
 }
