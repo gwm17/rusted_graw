@@ -124,6 +124,21 @@ impl eframe::App for MergerApp {
                 }
                 ui.end_row();
 
+                ui.checkbox(&mut self.config.online, "GRAW files from online source");
+                ui.end_row();
+
+                //EVT directory
+                ui.label(format!("EVT directory: {}", self.config.evt_path.display()));
+                if ui.button("Open...").clicked() {
+                    if let Ok(Some(path)) = native_dialog::FileDialog::new()
+                                            .set_location(&std::env::current_dir().expect("Couldn't access evt directory"))
+                                            .show_open_single_dir()
+                    {
+                        self.config.evt_path = path;
+                    }
+                }
+                ui.end_row();
+
                 //HDF directory
                 ui.label(format!("HDF5 directory: {}", self.config.hdf_path.display()));
                 if ui.button("Open...").clicked() {

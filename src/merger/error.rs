@@ -17,7 +17,7 @@ pub enum GrawDataError {
 impl Display for GrawDataError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GrawDataError::BadAgetID(id) => write!(f, "Invaild aget ID {} found in GrawData!", id),
+            GrawDataError::BadAgetID(id) => write!(f, "Invalid aget ID {} found in GrawData!", id),
             GrawDataError::BadChannel(chan) => write!(f, "Invalid channel {} found in GrawData!", chan),
             GrawDataError::BadTimeBucket(bucket) => write!(f, "Invalid time bucket {} found in GrawData!", bucket)
         }
@@ -113,6 +113,66 @@ impl Error for GrawFileError {
 }
 
 /*
+    EvtItem errors
+ */
+
+ #[derive(Debug)]
+ pub enum EvtItemError {
+    IOError(std::io::Error),
+ }
+
+ impl Display for EvtItemError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EvtItemError::IOError(e) => write!(f, "Error parsing buffer into Evt Item: {}", e),
+        }
+    }
+}
+
+impl Error for EvtItemError {
+
+ }
+
+/*
+    EvtFile errors
+ */
+
+ #[derive(Debug)]
+ pub enum EvtFileError {
+     BadItem(EvtItemError),
+     BadFilePath(PathBuf),
+     EndOfFile,
+     IOError(std::io::Error)
+ }
+ 
+ impl From<EvtItemError> for EvtFileError {
+     fn from(value: EvtItemError) -> Self {
+         EvtFileError::BadItem(value)
+     }
+ }
+ 
+ impl From<std::io::Error> for EvtFileError {
+     fn from(value: std::io::Error) -> Self {
+         EvtFileError::IOError(value)
+     }
+ }
+ 
+ impl Display for EvtFileError {
+     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+         match self {
+             EvtFileError::BadItem(frame) => write!(f, "Bad item found when reading evt File! Error: {}", frame),
+             EvtFileError::BadFilePath(path) => write!(f, "File {} does not exist at EvtFile::new!", path.display()),
+             EvtFileError::EndOfFile => write!(f, "File reached end!"),
+             EvtFileError::IOError(e) => write!(f, "Evt File received an io error: {}!", e)
+         }
+     }
+ }
+ 
+ impl Error for EvtFileError {
+ 
+ }
+ 
+ /*
     AsadStack errors
  */
 
@@ -316,7 +376,8 @@ pub enum ProcessorError {
     MergerError(MergerError),
     HDFError(hdf5::Error),
     ConfigError(ConfigError),
-    MapError(PadMapError)
+    MapError(PadMapError),
+    EvtError(EvtFileError)
 }
 
 impl From<MergerError> for ProcessorError {
@@ -356,11 +417,18 @@ impl Display for ProcessorError {
             Self::MergerError(e) => write!(f, "Processor failed at Merger with error: {}", e),
             Self::HDFError(e) => write!(f, "Processor failed at HDFWriter with error: {}", e),
             Self::ConfigError(e) => write!(f, "Processor failed due to Configuration error: {}", e),
-            Self::MapError(e) => write!(f, "Processor failed due to PadMap error: {}", e)
+            Self::MapError(e) => write!(f, "Processor failed due to PadMap error: {}", e),
+            Self::EvtError(e) => write!(f, "Processor failed due to evt file error: {}", e)
         }
     }
 }
 
 impl Error for ProcessorError {
 
+}
+
+impl From<EvtFileError> for ProcessorError {
+    fn from(value: EvtFileError) -> Self {
+        Self::EvtError(value)
+    }
 }

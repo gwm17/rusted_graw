@@ -9,9 +9,11 @@ use super::error::ConfigError;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub graw_path: PathBuf,
+    pub evt_path: PathBuf,
     pub hdf_path: PathBuf,
     pub pad_map_path: PathBuf,
-    pub run_number: i32
+    pub run_number: i32,
+    pub online: bool,
 }
 
 
@@ -19,7 +21,7 @@ impl Config {
 
     #[allow(dead_code)]
     pub fn default() -> Self {
-        Self { graw_path: PathBuf::from("None"), hdf_path: PathBuf::from("None"), pad_map_path: PathBuf::from("None"), run_number: 0 }
+        Self { graw_path: PathBuf::from("None"), evt_path: PathBuf::from("None"), hdf_path: PathBuf::from("None"), pad_map_path: PathBuf::from("None"), run_number: 0, online: false}
     }
 
     /// Read the configuration in a YAML file
@@ -40,6 +42,16 @@ impl Config {
             return Ok(run_dir);
         } else {
             return Err(ConfigError::BadFilePath(run_dir));
+        }
+    }
+
+    /// Construct the evt file name
+    pub fn get_evtrun(&self) -> Result<PathBuf, ConfigError> {
+        let run_name: PathBuf = self.evt_path.join(format!("run{}/{}.evt", self.run_number, self.get_evtrun_str()));
+        if run_name.exists() {
+            return Ok(run_name);
+        } else {
+            return Err(ConfigError::BadFilePath(run_name));
         }
     }
 
@@ -66,6 +78,22 @@ impl Config {
          }
          else {
              return format!("run_{}", self.run_number);
+         }
+    }
+
+    /// Construct the evt run string using the FRIB DAQ format
+    fn get_evtrun_str(&self) -> String {
+        if self.run_number < 10 {
+            return format!("run-000{}-00", self.run_number);
+         }
+         else if self.run_number < 100 {
+            return format!("run-00{}-00", self.run_number);
+         }
+         else if self.run_number < 1000 {
+             return format!("run-0{}-00", self.run_number);
+         }
+         else {
+             return format!("run-{}-00", self.run_number);
          }
     }
 }

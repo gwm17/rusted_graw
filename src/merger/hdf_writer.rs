@@ -1,11 +1,12 @@
 use std::os::unix::prelude::OsStrExt;
 use std::path::Path;
 use hdf5::{File, types::VarLenAscii};
-use ndarray::Array1;
+use ndarray::{Array1, Array2};
 use std::error::Error;
 
 use super::event::Event;
 use super::merger::Merger;
+use super::ring_item::{RunInfo, Scalers, Physics};
 
 const GROUP_NAME: &str = "get";
 const META_NAME: &str = "meta";
@@ -19,22 +20,31 @@ pub struct HDFWriter {
     file_handle: File, //Idk if this needs to be kept alive, but I think it does
     group: hdf5::Group,
     meta: hdf5::Group,
-    meta_data: [u64;4]
+    meta_data: [u64;4],
+    frib: hdf5::Group,
+    evt: hdf5::Group,
+    scaler: hdf5::Group
 }
 
 impl HDFWriter {
 
-    /// Create the writer, opening a file at path and creating the data group (named get)
+    /// Create the writer, opening a file at path and creating the data groups
     pub fn new(path: &Path) -> Result<Self, hdf5::Error> {
         let file_handle = File::create(path)?;
         let group = file_handle.create_group(GROUP_NAME)?;
         let meta = file_handle.create_group(META_NAME)?;
         let meta_data = [1000000000,0,0,0];
+        let frib = file_handle.create_group("frib")?;
+        let evt = frib.create_group("evt")?;
+        let scaler = frib.create_group("scaler")?;
         Ok( Self {
             file_handle,
             group,
             meta,
-            meta_data
+            meta_data,
+            frib,
+            evt,
+            scaler,
         } )
     }
 
@@ -89,6 +99,53 @@ impl HDFWriter {
         meta_builder.with_data(&self.meta_data).create(meta_name.as_str())?;
         log::info!("{} events written from {} to {}", self.meta_data[2]-self.meta_data[0], self.meta_data[0], self.meta_data[2]);
         log::info!("Run lasted {} seconds", (self.meta_data[3]-self.meta_data[1])/100000000); // Time Stamp Clock is 100 MHz
+        Ok(())
+    }
+
+    /// Write meta information from evt file in frib group
+    pub fn write_evtinfo(&self, run_info: RunInfo) -> Result<(), hdf5::Error> {
+        let builder = self.frib.new_dataset_builder();
+        let mut name = format!("runinfo");
+        let data: [u32;4] = [run_info.run, run_info.start, run_info.stop, run_info.seconds];
+        builder.with_data(&data).create(name.as_str())?;
+        name = format!("title");
+        let builder = self.frib.new_dataset_builder();
+        builder.with_data(&run_info.title.as_str()).create(name.as_str())?;
+        Ok(())
+    }
+
+    /// Write scaler data from evt file
+    pub fn write_scalers(&self, scalers: Scalers, counter: u32) -> Result<(), hdf5::Error> {
+        let builder = self.scaler.new_dataset_builder();
+        let mut name = format!("scaler{}_header", counter);
+        builder.with_data(&scalers.header).create(name.as_str())?;
+        name = format!("scaler{}_data", counter);
+        let builder = self.scaler.new_dataset_builder();
+        builder.with_data(&scalers.data).create(name.as_str())?;
+        Ok(())
+    }
+
+    /// Write physics data from evt file
+    pub fn write_physics(&self, physics: Physics, event_counter: &u32) -> Result<(), hdf5::Error> {
+        // write header
+        let builder = self.evt.new_dataset_builder();
+        let mut name = format!("evt{}_header", event_counter);
+        builder.with_data(&physics.header).create(name.as_str())?;
+        // write V977 data
+        name = format!("evt{}_977", event_counter);
+        let builder = self.evt.new_dataset_builder();
+        let reg: [u16;1] = [u16::try_from(physics.coinc.coinc).unwrap()];
+        builder.with_data(&reg).create(name.as_str())?;
+        // write SIS3300 data
+        name = format!("evt{}_1903", event_counter);
+        let builder = self.evt.new_dataset_builder();
+        let mut data_matrix = Array2::<u16>::zeros([physics.fadc.samples, physics.fadc.traces.len()]);
+        for i in 0..8 {
+            for j in 0..physics.fadc.samples {
+                data_matrix[[j,i]] = physics.fadc.traces[i][j];
+            }
+        }
+        builder.with_data(&data_matrix).create(name.as_str())?;
         Ok(())
     }
 
