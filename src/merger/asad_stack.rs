@@ -32,7 +32,9 @@ impl AsadStack {
 
     /// Create a new AsadStack for a given AsAd-CoBo combo in a given directory
     pub fn new(data_path: &Path, cobo_number: i32, asad_number: i32) -> Result<Self, AsadStackError> {
-        let parent_path = data_path.join(format!("mm{}", cobo_number)); //Each cobo gets its own MacMini (hence mm) and therefore its own directory
+        
+//        let parent_path = data_path.join(format!("mm{}", cobo_number)); //Each cobo gets its own MacMini (hence mm) and therefore its own directory
+        let parent_path = data_path.join("");
 
         let (mut file_stack, total_stack_size_bytes) = Self::get_file_stack(&parent_path, &cobo_number, &asad_number)?;
         if let Some(path) = file_stack.pop_front() { //Activate the first file

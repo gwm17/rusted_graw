@@ -34,8 +34,10 @@ impl RingItem {
         // I am a dummy therefore I do nothing...
     }
 
-    pub fn counter(&self, counter: &mut u32) {
-        *counter += 1;
+    /// Physics events counter
+    pub fn counter(&self, index: usize, event_counter: &mut u64) {
+        let mut ind: usize = index+12;
+        self.extract64(&mut ind, event_counter);
     }
 
     pub fn scaler(&self, ind: usize, scalers: &mut Scalers) {
@@ -172,6 +174,13 @@ impl RingItem {
         buf32.copy_from_slice(&self.bytes[*ind..*ind+4]);
         *var = u32::from_le_bytes(buf32);
         *ind += 4;
+    }
+
+    pub fn extract64(&self, ind: &mut usize, var: &mut u64) {
+        let mut buf64: [u8;8] = [0,0,0,0,0,0,0,0];
+        buf64.copy_from_slice(&self.bytes[*ind..*ind+8]);
+        *var = u64::from_le_bytes(buf64);
+        *ind += 8;
     }
 
 }

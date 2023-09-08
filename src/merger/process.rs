@@ -11,9 +11,9 @@ use super::constants::SIZE_UNIT;
 use super::error::ProcessorError;
 use super::config::Config;
 
-fn flush_final_event(mut evb: EventBuilder, mut writer: HDFWriter) -> Result<(), hdf5::Error> {
+fn flush_final_event(mut evb: EventBuilder, mut writer: HDFWriter, event_counter: &u64) -> Result<(), hdf5::Error> {
     if let Some(event) = evb.flush_final_event() {
-        writer.write_event(event)
+        writer.write_event(event, &event_counter)
     } else {
         Ok(())
     }
@@ -21,16 +21,16 @@ fn flush_final_event(mut evb: EventBuilder, mut writer: HDFWriter) -> Result<(),
 
 pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), ProcessorError> {
 
-    let run_path = config.get_run_directory()?;
+//    let run_path = config.get_run_directory()?;
     let evt_name = config.get_evtrun()?;
     let hdf_path = config.get_hdf_file_name()?;
-
-    log::info!("Configuration parsed.\n GRAW run path: {}\n EVT file: {}\nHDF file path: {}\n Pad map file path: {}", run_path.display(), evt_name.display(), hdf_path.display(), config.pad_map_path.display());
+ 
+//    log::info!("Configuration parsed.\n GRAW run path: {}\n EVT file: {}\nHDF file path: {}\n Pad map file path: {}", run_path.display(), evt_name.display(), hdf_path.display(), config.pad_map_path.display());
 
     let pad_map = PadMap::new(&config.pad_map_path)?;
 
     //Initialize the merger, event builder, and hdf writer
-    let mut merger = Merger::new(&run_path)?;
+    let mut merger = Merger::new(&config)?;
     log::info!("Total run size: {}", human_bytes::human_bytes(*merger.get_total_data_size() as f64));
     let mut evb = EventBuilder::new(pad_map);
     let mut writer = HDFWriter::new(&hdf_path)?;
@@ -44,9 +44,8 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
     log::info!("Now processing evt data...");
     let mut evt_file = EvtFile::new(&evt_name)?; // open evt file
     let mut run_info = RunInfo::new();
-    let mut counter: u32 = 0;
     let mut scaler_counter: u32 = 0;
-    let mut event_counter: u32 = 0;
+    let mut event_counter: u64 = 0;
     loop {
         if let Some(mut ring) = evt_file.get_next_item()? {
             let index: usize;
@@ -80,7 +79,7 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
                     writer.write_physics(physics, &event_counter)?;
                     event_counter += 1;
                 }
-                31 => RingItem::counter(&ring, &mut counter),
+                31 => RingItem::counter(&ring, index, &mut event_counter),
                 _ => log::info!("Unrecognized ring type: {}", ring.bytes[4])
             }
         } else {
@@ -92,6 +91,7 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
 
     log::info!("Processing get data...");
     writer.write_fileinfo(&merger).unwrap();
+    event_counter = 0;
     loop {
         if let Some(frame) = merger.get_next_frame()? { //Merger found a frame
             //bleh
@@ -104,13 +104,14 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
             }
 
             if let Some(event) = evb.append_frame(frame)? {
-                writer.write_event(event)?;
+                writer.write_event(event, &event_counter)?;
+                event_counter += 1;
             } else {
                 continue;
             }
         } else { //If the merger returns none, there is no more data to be read
             writer.write_meta()?; // write meta dataset (first and last event id + ts)
-            flush_final_event(evb, writer)?;
+            flush_final_event(evb, writer, &event_counter)?;
             break;
         }
     }

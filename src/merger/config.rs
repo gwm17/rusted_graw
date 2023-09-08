@@ -14,6 +14,7 @@ pub struct Config {
     pub pad_map_path: PathBuf,
     pub run_number: i32,
     pub online: bool,
+    pub experiment: String,
 }
 
 
@@ -21,7 +22,8 @@ impl Config {
 
     #[allow(dead_code)]
     pub fn default() -> Self {
-        Self { graw_path: PathBuf::from("None"), evt_path: PathBuf::from("None"), hdf_path: PathBuf::from("None"), pad_map_path: PathBuf::from("None"), run_number: 0, online: false}
+        Self { graw_path: PathBuf::from("None"), evt_path: PathBuf::from("None"), hdf_path: PathBuf::from("None"), 
+        pad_map_path: PathBuf::from("None"), run_number: 0, online: false, experiment: "".to_string()}
     }
 
     /// Read the configuration in a YAML file
@@ -36,12 +38,25 @@ impl Config {
     }
 
     /// Construct the run directory
-    pub fn get_run_directory(&self) -> Result<PathBuf, ConfigError> {
-        let run_dir: PathBuf = self.graw_path.join(self.get_run_str());
+    pub fn get_run_directory(&self, cobo: &u8) -> Result<PathBuf, ConfigError> {
+        let mut run_dir: PathBuf = self.graw_path.join(self.get_run_str());
+        run_dir = run_dir.join(format!("mm{}", cobo));
         if run_dir.exists() {
             return Ok(run_dir);
         } else {
             return Err(ConfigError::BadFilePath(run_dir));
+        }
+    }
+
+    /// Construct the online directory
+    pub fn get_online_directory(&self, cobo: &u8) -> Result<PathBuf, ConfigError> {
+        let mut online_dir: PathBuf = PathBuf::new().join(format!("/Volumes/mm{}", cobo));
+        online_dir = online_dir.join(format!("{}", self.experiment));
+        online_dir = online_dir.join(self.get_run_str());
+        if online_dir.exists() {
+            return Ok(online_dir);
+        } else {
+            return Err(ConfigError::BadFilePath(online_dir));
         }
     }
 

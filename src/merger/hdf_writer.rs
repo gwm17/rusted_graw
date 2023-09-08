@@ -49,11 +49,11 @@ impl HDFWriter {
     }
 
     /// Write an event, where the event is converted into a data matrix
-    pub fn write_event(&mut self, event: Event) -> Result<(), hdf5::Error> {
+    pub fn write_event(&mut self, event: Event, event_counter: &u64) -> Result<(), hdf5::Error> {
         let header_builder =  self.group.new_dataset_builder();
         let body_builder =  self.group.new_dataset_builder();
-        let event_body_name = format!("evt{}_data", event.event_id);
-        let event_header_name = format!("evt{}_header", event.event_id);
+        let event_body_name = format!("evt{}_data", event_counter);
+        let event_header_name = format!("evt{}_header", event_counter);
         if u64::from(event.event_id) < self.meta_data[0] { // Catch first event
             self.meta_data[0] = u64::from(event.event_id);
             self.meta_data[1] = event.timestamp;
@@ -126,7 +126,7 @@ impl HDFWriter {
     }
 
     /// Write physics data from evt file
-    pub fn write_physics(&self, physics: Physics, event_counter: &u32) -> Result<(), hdf5::Error> {
+    pub fn write_physics(&self, physics: Physics, event_counter: &u64) -> Result<(), hdf5::Error> {
         // write header
         let builder = self.evt.new_dataset_builder();
         let mut name = format!("evt{}_header", event_counter);

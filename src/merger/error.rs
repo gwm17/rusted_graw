@@ -276,7 +276,8 @@ impl Error for EventError {
 pub enum MergerError {
     AsadError(AsadStackError),
     NoFilesError,
-    IOError(std::io::Error)
+    IOError(std::io::Error),
+    ConfigError(ConfigError)
 }
 
 impl From<AsadStackError> for MergerError {
@@ -291,12 +292,19 @@ impl From<std::io::Error> for MergerError {
     }
 }
 
+impl From<ConfigError> for MergerError {
+    fn from(value: ConfigError) -> Self {
+        MergerError::ConfigError(value)
+    }
+}
+
 impl Display for MergerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             MergerError::AsadError(e) => write!(f, "A stack error occurred while merging! Error: {}", e),
             MergerError::NoFilesError => write!(f, "Merger could not find any files with .graw extension!"),
-            MergerError::IOError(e) => write!(f, "The merger recieved an io error: {}", e)
+            MergerError::IOError(e) => write!(f, "The merger recieved an io error: {}", e),
+            MergerError::ConfigError(e) => write!(f, "The merger encountered a config error: {}", e)
         }
     }
 }
