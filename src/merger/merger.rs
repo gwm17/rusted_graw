@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::path::PathBuf;
 
 
 use super::constants::{NUMBER_OF_COBOS, NUMBER_OF_ASADS};
@@ -7,6 +7,7 @@ use super::error::AsadStackError;
 use super::asad_stack::AsadStack;
 use super::graw_frame::GrawFrame;
 use super::error::MergerError;
+use super::config::Config;
 
 /// # Merger
 /// Merger essentially performs a merge-sort operation on the data files, taking all of the separate
@@ -21,7 +22,7 @@ pub struct Merger {
 impl Merger {
 
     /// Create a new merger. Requires the path to the graw data files
-    pub fn new(graw_dir: &Path) -> Result<Self, MergerError> {
+    pub fn new(config: &Config) -> Result<Self, MergerError> {
 
         let mut merger = Merger {
             file_stacks: Vec::new(),
@@ -29,9 +30,15 @@ impl Merger {
         };
 
         //For every asad in every cobo, attempt to make a stack
+        let mut graw_dir = PathBuf::new();
         for cobo in 0..NUMBER_OF_COBOS {
+            if config.online {
+                graw_dir = config.get_online_directory(&cobo)?;
+            } else {
+                graw_dir = config.get_run_directory(&cobo)?;
+            }
             for asad in 0..NUMBER_OF_ASADS {
-                match AsadStack::new(graw_dir, cobo as i32, asad as i32) {
+                match AsadStack::new(&graw_dir, cobo as i32, asad as i32) {
                     Ok(stack) => {
                         merger.file_stacks.push(stack);
                     }
@@ -88,6 +95,10 @@ impl Merger {
     /// Total size of the run in bytes
     pub fn get_total_data_size(&self) -> &u64 {
         &self.total_data_size_bytes
+    }
+
+    pub fn get_file_stacks(&self) -> &Vec<AsadStack> {
+        &self.file_stacks
     }
 
 }
