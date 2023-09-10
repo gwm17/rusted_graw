@@ -2,3 +2,6 @@
 /etc
 /.cargo
 *.yaml
+.vscode/
+.vs/
+.DS_Store
