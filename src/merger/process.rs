@@ -12,6 +12,7 @@ use super::constants::SIZE_UNIT;
 use super::error::ProcessorError;
 use super::config::Config;
 
+/// The final event of the EventBuilder will need a manual flush
 fn flush_final_event(mut evb: EventBuilder, mut writer: HDFWriter, event_counter: &u64) -> Result<(), hdf5::Error> {
     if let Some(event) = evb.flush_final_event() {
         writer.write_event(event, &event_counter)
@@ -20,6 +21,7 @@ fn flush_final_event(mut evb: EventBuilder, mut writer: HDFWriter, event_counter
     }
 }
 
+/// Process the evt data for this run
 fn process_evt_data(evt_path: PathBuf, writer: &HDFWriter) -> Result<(), ProcessorError> {
     let mut evt_file = EvtFile::new(&evt_path)?; // open evt file
     let mut run_info = RunInfo::new();
@@ -60,6 +62,8 @@ fn process_evt_data(evt_path: PathBuf, writer: &HDFWriter) -> Result<(), Process
     Ok(())
 }
 
+/// The main loop of rusted_graw. This takes in a config (and progress monitor) and preforms the merging
+/// logic on the recieved data.
 pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), ProcessorError> {
 
     let evt_path = config.get_evtrun()?;
@@ -78,10 +82,12 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
     let mut count =0;
     let flush_val = (*total_data_size as f64 * flush_frac as f64) as u64;
 
+    //Handle the evt data
     log::info!("Now processing evt data...");
     process_evt_data(evt_path, &writer)?;
     log::info!("Done with evt data.");
 
+    //Handle the get data
     log::info!("Processing get data...");
     writer.write_fileinfo(&merger).unwrap();
     let mut event_counter = 0;

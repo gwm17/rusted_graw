@@ -8,9 +8,11 @@ use byteorder::ReadBytesExt;
 use super::error::EvtFileError;
 use super::ring_item::RingItem;
 
-// # EVT file
-// .evt files contain the data recorded by the FRIB DAQ system
-// The data is atomic in ring items that contain various types of data
+/// # EvtFile
+/// .evt files contain the data recorded by the FRIB DAQ system.
+/// The data is atomic in RingItems that contain various types of data.
+/// These RingItems can then be cast to functional types which parse the binary buffer
+/// and allow the data to be accessed.
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -38,9 +40,13 @@ impl EvtFile {
         Ok(EvtFile {file_handle: handle, file_path, size_bytes: size_bytes, is_eof: false, is_open: true })
     }
 
+    /// Retrieve the next RingItem from the buffer. Returns a Result<Option<RingItem>>. If the Option is None,
+    /// the file has run out of data.
     pub fn get_next_item(&mut self) -> Result<Option<RingItem>, EvtFileError>  {
+        //First need to query the size of the next ring item.
         let current_position: u64 = self.file_handle.stream_position()?;
         let item_size = self.file_handle.read_u32::<LittleEndian>()? as usize;
+        
         self.file_handle.seek(SeekFrom::Start(current_position))?; // Go back to start of item (size is self contained)
         let mut buffer: Vec<u8> = vec![0; item_size]; // set size of bytes vector
         match self.file_handle.read_exact(&mut buffer) { // try to read ring item
