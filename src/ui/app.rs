@@ -126,9 +126,12 @@ impl eframe::App for MergerApp {
 
                 ui.checkbox(&mut self.config.online, "GRAW files from online source");
                 ui.end_row();
-                ui.label("Experiment:");
-                ui.text_edit_singleline(&mut self.config.experiment);
-                ui.end_row();
+                //Online data requires a further path extension based on the experiment
+                if self.config.online {
+                    ui.label("Experiment:");
+                    ui.text_edit_singleline(&mut self.config.experiment);
+                    ui.end_row();
+                }
 
                 //EVT directory
                 ui.label(format!("EVT directory: {}", self.config.evt_path.display()));
