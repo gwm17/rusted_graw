@@ -10,6 +10,9 @@ use super::ring_item::{RunInfo, Scalers, Physics};
 
 const GROUP_NAME: &str = "get";
 const META_NAME: &str = "meta";
+const FRIB_NAME: &str = "frib";
+const EVT_NAME: &str = "evt";
+const SCALER_NAME: &str = "scaler";
 
 /// # HDFWriter
 /// A simple struct which wraps around the hdf5-rust library. Opens a file for writing and
@@ -34,9 +37,9 @@ impl HDFWriter {
         let group = file_handle.create_group(GROUP_NAME)?;
         let meta = file_handle.create_group(META_NAME)?;
         let meta_data = [1000000000,0,0,0];
-        let frib = file_handle.create_group("frib")?;
-        let evt = frib.create_group("evt")?;
-        let scaler = frib.create_group("scaler")?;
+        let frib = file_handle.create_group(FRIB_NAME)?;
+        let evt = frib.create_group(EVT_NAME)?;
+        let scaler = frib.create_group(SCALER_NAME)?;
         Ok( Self {
             file_handle,
             group,
@@ -106,11 +109,11 @@ impl HDFWriter {
     pub fn write_evtinfo(&self, run_info: RunInfo) -> Result<(), hdf5::Error> {
         let builder = self.frib.new_dataset_builder();
         let mut name = format!("runinfo");
-        let data: [u32;4] = [run_info.run, run_info.start, run_info.stop, run_info.seconds];
+        let data: [u32;4] = [run_info.begin.run, run_info.begin.start, run_info.end.stop, run_info.end.time];
         builder.with_data(&data).create(name.as_str())?;
         name = format!("title");
         let builder = self.frib.new_dataset_builder();
-        builder.with_data(&run_info.title.as_str()).create(name.as_str())?;
+        builder.with_data(&run_info.begin.title.as_str()).create(name.as_str())?;
         Ok(())
     }
 
@@ -118,7 +121,7 @@ impl HDFWriter {
     pub fn write_scalers(&self, scalers: Scalers, counter: u32) -> Result<(), hdf5::Error> {
         let builder = self.scaler.new_dataset_builder();
         let mut name = format!("scaler{}_header", counter);
-        builder.with_data(&scalers.header).create(name.as_str())?;
+        builder.with_data(&scalers.get_header_array()).create(name.as_str())?;
         name = format!("scaler{}_data", counter);
         let builder = self.scaler.new_dataset_builder();
         builder.with_data(&scalers.data).create(name.as_str())?;
@@ -130,7 +133,7 @@ impl HDFWriter {
         // write header
         let builder = self.evt.new_dataset_builder();
         let mut name = format!("evt{}_header", event_counter);
-        builder.with_data(&physics.header).create(name.as_str())?;
+        builder.with_data(&physics.get_header_array()).create(name.as_str())?;
         // write V977 data
         name = format!("evt{}_977", event_counter);
         let builder = self.evt.new_dataset_builder();

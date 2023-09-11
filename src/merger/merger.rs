@@ -30,7 +30,7 @@ impl Merger {
         };
 
         //For every asad in every cobo, attempt to make a stack
-        let mut graw_dir = PathBuf::new();
+        let mut graw_dir: PathBuf;
         for cobo in 0..NUMBER_OF_COBOS {
             if config.online {
                 graw_dir = config.get_online_directory(&cobo)?;

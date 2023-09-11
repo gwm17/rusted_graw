@@ -119,13 +119,23 @@ impl Error for GrawFileError {
  #[derive(Debug)]
  pub enum EvtItemError {
     IOError(std::io::Error),
+    StackOrderError,
+    ItemSizeError
  }
 
  impl Display for EvtItemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EvtItemError::IOError(e) => write!(f, "Error parsing buffer into Evt Item: {}", e),
+            Self::IOError(e) => write!(f, "Error parsing buffer into Evt Item: {}", e),
+            Self::StackOrderError => write!(f, "In Physics item, module stack was out of order!"),
+            Self::ItemSizeError => write!(f, "RingItem buffer has insufficent size!")
         }
+    }
+}
+
+impl From<std::io::Error> for EvtItemError {
+    fn from(value: std::io::Error) -> Self {
+        return Self::IOError(value);
     }
 }
 
@@ -415,6 +425,12 @@ impl From<ConfigError> for ProcessorError {
 impl From<PadMapError> for ProcessorError {
     fn from(value: PadMapError) -> Self {
         Self::MapError(value)
+    }
+}
+
+impl From<EvtItemError> for ProcessorError {
+    fn from(value: EvtItemError) -> Self {
+        Self::EvtError(EvtFileError::BadItem(value))
     }
 }
 

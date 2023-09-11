@@ -82,34 +82,12 @@ impl Config {
 
     /// Construct the run string using the AT-TPC DAQ format
     fn get_run_str(&self) -> String {
-        if self.run_number < 10 {
-            return format!("run_000{}", self.run_number);
-         }
-         else if self.run_number < 100 {
-            return format!("run_00{}", self.run_number);
-         }
-         else if self.run_number < 1000 {
-             return format!("run_0{}", self.run_number);
-         }
-         else {
-             return format!("run_{}", self.run_number);
-         }
+        return format!("run_{:0>4}", self.run_number);
     }
 
     /// Construct the evt run string using the FRIB DAQ format
     fn get_evtrun_str(&self) -> String {
-        if self.run_number < 10 {
-            return format!("run-000{}-00", self.run_number);
-         }
-         else if self.run_number < 100 {
-            return format!("run-00{}-00", self.run_number);
-         }
-         else if self.run_number < 1000 {
-             return format!("run-0{}-00", self.run_number);
-         }
-         else {
-             return format!("run-{}-00", self.run_number);
-         }
+        return format!("run-{:0>4}-00", self.run_number);
     }
 }
 

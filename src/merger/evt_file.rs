@@ -2,7 +2,10 @@ use std::fs::File;
 use std::io::{Seek, Read, SeekFrom};
 use std::path::{Path, PathBuf};
 
-use super::error::EvtFileError;
+use byteorder::LittleEndian;
+use byteorder::ReadBytesExt;
+
+use super::error::{EvtFileError, EvtItemError};
 use super::ring_item::RingItem;
 
 // # EVT file
@@ -37,14 +40,11 @@ impl EvtFile {
     }
 
     pub fn get_next_item(&mut self) -> Result<Option<RingItem>, EvtFileError>  {
-        let mut item = RingItem::new();
         let current_position: u64 = self.file_handle.stream_position()?;
-        let mut sizebuf= [0,0,0,0];
-        self.file_handle.read_exact(&mut sizebuf)?; // Get the ring item size (in bytes)
-        item.size = u32::from_ne_bytes(sizebuf);
+        let item_size = self.file_handle.read_u32::<LittleEndian>()? as usize;
         self.file_handle.seek(SeekFrom::Start(current_position))?; // Go back to start of item (size is self contained)
-        item.bytes = vec![0; item.size.try_into().unwrap()]; // set size of bytes vector
-        match self.file_handle.read_exact(&mut item.bytes) { // try to read ring item
+        let mut buffer: Vec<u8> = vec![0; item_size]; // set size of bytes vector
+        match self.file_handle.read_exact(&mut buffer) { // try to read ring item
             Err(e) => match e.kind() {
                 std::io::ErrorKind::UnexpectedEof => {
                     self.is_eof = true;
@@ -55,7 +55,15 @@ impl EvtFile {
                 }
             }
             Ok(()) => {
-                return Ok(Some(item));
+                let item_data_buffer: Vec<u8>;
+                if buffer[8] == 20 && buffer.len() >= 28 { // ring header might or might not be present
+                    item_data_buffer = buffer[28..].to_vec();
+                } else if buffer.len() >= 12 {
+                    item_data_buffer = buffer[12..].to_vec();
+                } else {
+                    return Err(EvtFileError::BadItem(EvtItemError::ItemSizeError));
+                }
+                return Ok(Some(RingItem::try_from(item_data_buffer)?));
             }
         }
     }
