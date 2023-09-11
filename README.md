@@ -40,9 +40,10 @@ To run rusted_graw use `cargo run --release` from the rusted_graw repository. Th
 
 ## Configuration
 
-The rusted_graw UI has 4 input fields that the user needs to fill out to process a run:
+The rusted_graw UI has 5 input fields that the user needs to fill out to process a run:
 
 - GRAW directory: Specifies the full-path to a directory which contains the AT-TPC graw structure (i.e. contains subdirectories of the run_# format)
+- EVT directory: Specifies the full-path to a directory which contains the FRIBDAQ evt structure (i.e. contains subdirectories of the run# format)
 - HDF5 directory: Specifies the full-path to a directory to which hdf5 (.h5) files will be written
 - Pad map: Specifies the full path to a CSV file which contains the mapping information for AT-TPC pads and electronics
 - Run Number: Which run should be processed
@@ -51,6 +52,12 @@ The configuration can be saved (to a .yaml format) using File -> Save...
 Configuration files can be loaded using File -> Open...
 Using the Open buttons next to the directory/file fields will bring up a file dialog for those elements
 
+### Online
+
+The rusted_graw UI additionally contains a button for toggling online mode. When toggled on, this changes the 
+interpretation of the various paths to match the behavior of the AT-TPC DAQ network. Only use this if you
+know what you're doing.
+
 ## Output
 
 rusted_graw will output two files: the final resulting HDF5 data file, and a log file. Log files contain valuable information about the status of the application while building the merged data. If an error occurs, typically a warning will be printed to the terminal indicating that the user should check the log file. The log file will contain the detailed status of the run and indicate the issue that occurred. Log files are also useful because they can be easily shared when errors occur. It is not advised to delete the log files.
@@ -58,12 +65,16 @@ rusted_graw will output two files: the final resulting HDF5 data file, and a log
 ### HDF5 Data Format
 
 The data format used in the HDF5 data is as follows:
-
-- All data is within the Group named "get"
+- All FRIBDAQ data is within the Group "frib"
+- FRIBDAQ Physics items are stored in the "evt" group
+- FRIBDAQ Scaler items are stored in the "scaler" group
+- All GET data is within the Group named "get"
 - Each event has two Datasets. One is "evt#_data" and one is "evt#_header". The Datasets are named by event number (i.e. event 101 corresponds to Dataset evt101_data).
 - The "header" Datasets contain metadata about the event (number and timestamp).
 - Each "data" Dataset contains a two dimensional matrix of traces. Each row contains the data for a single trace from a pad in AT-TPC. The first five elements of the row contain the electronic address of the the pad (CoBo, AsAd, AGET, Channel, Pad in that order); the remaining 512 elements contain the trace data.
 - Traces are stored in random order. That is, the Dataset matrix rows are not sorted by electronic address.
+
+Meta data can be found in many places. This will be cleaned up in future versions.
 
 ### Trace Analysis
 
