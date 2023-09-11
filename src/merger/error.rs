@@ -260,6 +260,7 @@ impl Error for PadMapError {
     Event errors
  */
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum EventError {
     InvalidHardware(u8, u8, u8, u8),
     MismatchedEventID(u32, u32),

@@ -9,6 +9,7 @@ use super::constants::*;
 const FPN_CHANNELS: [u8; 4] = [11, 22, 45, 56]; //From AGET docs
 
 /// Simple baseline subtraction for a trace
+#[allow(dead_code)]
 fn subtract_trace_baseline(trace: &mut Array1<i16>) {
     let sum: i16 = trace.iter().sum();
     let mut n_nonzero: i16 = 0; 
@@ -44,7 +45,8 @@ impl Event {
             event.append_frame(pad_map, frame)?;
         }
 
-        event.subtract_fixed_pattern_noise(pad_map);
+        // This isn't used
+        //event.subtract_fixed_pattern_noise(pad_map);
         Ok(event)
     }
 
@@ -86,7 +88,8 @@ impl Event {
             hw_id = match pad_map.get_hardware_id(&frame.header.cobo_id, &frame.header.asad_id, &datum.aget_id, &datum.channel) {
                 Some(hw) => hw,
                 None => {
-                    return Err(EventError::InvalidHardware(frame.header.cobo_id, frame.header.asad_id, datum.aget_id, datum.channel));
+                    continue;
+                    //return Err(EventError::InvalidHardware(frame.header.cobo_id, frame.header.asad_id, datum.aget_id, datum.channel));
                 }
             };
 
@@ -109,6 +112,7 @@ impl Event {
     }
 
     /// Only for use in special cases! This will not throw errors when invalid pads are selected
+    #[allow(dead_code)]
     fn get_trace_from_hardware_id(&self, pad_map: &PadMap, cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) -> Option<&Array1<i16>> {
         if let Some(hw_id) = pad_map.get_hardware_id(cobo_id, asad_id, aget_id, channel_id) {
             return self.traces.get(hw_id);
@@ -118,6 +122,7 @@ impl Event {
     }
 
     /// Only for use in special cases! This will not throw errors when invalid pads are selected
+    #[allow(dead_code)]
     fn get_mutable_trace_from_hardware_id(&mut self, pad_map: &PadMap, cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) -> Option<&mut Array1<i16>> {
         if let Some(hw_id) = pad_map.get_hardware_id(cobo_id, asad_id, aget_id, channel_id) {
             return self.traces.get_mut(hw_id);
@@ -127,6 +132,7 @@ impl Event {
     }
 
     /// Remove a trace, if it exists
+    #[allow(dead_code)]
     fn remove_trace(&mut self, pad_map: &PadMap, cobo_id: &u8, asad_id: &u8, aget_id: &u8, channel_id: &u8) {
         if let Some(hw_id) = pad_map.get_hardware_id(cobo_id, asad_id, aget_id, channel_id) {
             self.traces.remove(hw_id);
@@ -134,6 +140,7 @@ impl Event {
     }
 
     /// Idk if this is even really used
+    #[allow(dead_code)]
     fn subtract_fixed_pattern_noise(&mut self, pad_map: &PadMap) {
 
         for cb_id in 0..NUMBER_OF_COBOS {
@@ -211,6 +218,7 @@ impl Event {
         }
     }
 
+    #[allow(dead_code)]
     fn remove_fpn_channels(&mut self, pad_map: &PadMap, cobo_id: &u8, asad_id: &u8, aget_id: &u8) {
         for channel in FPN_CHANNELS {
             self.remove_trace(pad_map, &cobo_id, &asad_id, &aget_id, &channel);
