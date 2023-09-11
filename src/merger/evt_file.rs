@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use byteorder::LittleEndian;
 use byteorder::ReadBytesExt;
 
-use super::error::{EvtFileError, EvtItemError};
+use super::error::EvtFileError;
 use super::ring_item::RingItem;
 
 // # EVT file
@@ -18,7 +18,6 @@ pub struct EvtFile {
     file_handle: File,
     file_path: PathBuf,
     size_bytes: u64,
-//    next_item_metadata: ItemMetadata, // Store this to reduce read calls
     is_eof: bool,
     is_open: bool
 }
@@ -55,15 +54,7 @@ impl EvtFile {
                 }
             }
             Ok(()) => {
-                let item_data_buffer: Vec<u8>;
-                if buffer[8] == 20 && buffer.len() >= 28 { // ring header might or might not be present
-                    item_data_buffer = buffer[28..].to_vec();
-                } else if buffer.len() >= 12 {
-                    item_data_buffer = buffer[12..].to_vec();
-                } else {
-                    return Err(EvtFileError::BadItem(EvtItemError::ItemSizeError));
-                }
-                return Ok(Some(RingItem::try_from(item_data_buffer)?));
+                return Ok(Some(RingItem::try_from(buffer)?));
             }
         }
     }

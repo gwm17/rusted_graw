@@ -54,7 +54,15 @@ impl TryFrom<Vec<u8>> for RingItem {
                 None => return Err(EvtItemError::ItemSizeError)
             };
         }
-        Ok(Self { size: buffer.len(), bytes: buffer, ring_type: RingType::from(rt_data) })
+        let item_data_buffer: Vec<u8>;
+        if buffer[8] == 20 && buffer.len() >= 28 { // ring header might or might not be present
+            item_data_buffer = buffer[28..].to_vec();
+        } else if buffer.len() >= 12 {
+            item_data_buffer = buffer[12..].to_vec();
+        } else {
+            return Err(EvtItemError::ItemSizeError);
+        }
+        Ok(Self { size: buffer.len(), bytes: item_data_buffer, ring_type: RingType::from(rt_data) })
     }
 }
 
@@ -210,6 +218,7 @@ impl TryFrom<RingItem> for CounterItem {
     fn try_from(ring: RingItem) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(ring.bytes);
         let mut info = Self::new();
+        cursor.set_position(12);
         info.count = cursor.read_u64::<LittleEndian>()?;
         return Ok(info);
     }
@@ -217,7 +226,7 @@ impl TryFrom<RingItem> for CounterItem {
 
 impl CounterItem {
     pub fn new() -> Self {
-        return Self{ count: 0};
+        return Self{ count: 0 };
     }
 }
 
@@ -282,12 +291,9 @@ impl SIS3300 {
         //Some data
         let mut header: u16;
         let mut group_trigger: u32;
-        let mut pointer: u32;
+        let mut pointer: usize;
         let mut trailer: u16;
-        let mut adc1: [u8;2] = [0,0];
-        let mut adc2: [u8;2] = [0,0];
 
-        let starting_position = cursor.position();
 
         for group in 0..4 {
             if group_enable_flags&(1<<group) == 0 { // skip if group is not enabled
@@ -303,47 +309,26 @@ impl SIS3300 {
             self.samples = cursor.read_u32::<LittleEndian>()? as usize;
             self.traces[group*2] = vec![0; self.samples];
             self.traces[group*2 + 1] = vec![0; self.samples];
-            pointer = group_trigger&0x1ffff; // write pointer
-            if group_trigger&0x80000 != 0 { // if wrap around bit == 1
-                let istart: usize = usize::try_from(pointer+1).unwrap();
-                let inc: usize = self.samples-(pointer as usize)-2;
+            pointer = (group_trigger&0x1ffff) as usize; // write pointer
+            let starting_position = cursor.position();
+            if ((group_trigger&0x80000) != 0) && (pointer < self.samples-1) { // if wrap around bit == 1
+                let istart: usize = pointer + 1;
+                let inc: usize = self.samples - pointer - 2;
+                cursor.set_position(starting_position + ((istart * 4) as u64));
                 for p in 0..inc+1 {
-                    cursor.set_position(starting_position+ (((istart+p)*4) as u64));
-                    adc1[0] = cursor.read_u8()?;
-                    cursor.set_position(starting_position + (((istart+p)*4 + 2) as u64));
-                    adc1[1] = cursor.read_u8()?;
-                    self.traces[group*2+1][p] = u16::from_le_bytes(adc1)&0xfff;
-                    cursor.set_position(starting_position + (((istart+p)*4+2) as u64));
-                    adc2[0] = cursor.read_u8()?;
-                    cursor.set_position(starting_position + (((istart+p)*4 +3) as u64));
-                    adc2[1] = cursor.read_u8()?;
-                    self.traces[group*2][p] = u16::from_le_bytes(adc2)&0xfff;
+                    self.traces[group*2+1][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group*2][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
                 }
-                let istop: usize = (self.samples as usize)-inc-1;
+                let istop: usize = self.samples - inc - 1;
+                cursor.set_position(starting_position);
                 for p in 0..istop {
-                    cursor.set_position(starting_position + ((p*4) as u64));
-                    adc1[0] = cursor.read_u8()?;
-                    cursor.set_position(starting_position + ((p*4 + 1) as u64));
-                    adc1[1] = cursor.read_u8()?;
-                    self.traces[group*2+1][p+inc+1] = u16::from_le_bytes(adc1)&0xfff;
-                    cursor.set_position(starting_position + ((p*4 + 2) as u64));
-                    adc2[0] = cursor.read_u8()?;
-                    cursor.set_position(starting_position + ((p*4 + 3) as u64));
-                    adc2[1] = cursor.read_u8()?;
-                    self.traces[group*2][p+inc+1] = u16::from_le_bytes(adc2)&0xfff;
+                    self.traces[group*2+1][p+inc+1] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group*2][p+inc+1] = cursor.read_u16::<LittleEndian>()? & 0xfff;
                 }
             } else {
-                for p in 00..self.samples {
-                    cursor.set_position(starting_position + ((p*4) as u64));
-                    adc1[0] = cursor.read_u8()?;
-                    cursor.set_position(starting_position + ((p*4 + 1) as u64));
-                    adc1[1] = cursor.read_u8()?;
-                    self.traces[group*2+1][p] = u16::from_le_bytes(adc1)&0xfff;
-                    cursor.set_position(starting_position + ((p*4 + 2) as u64));
-                    adc2[0] = cursor.read_u8()?;
-                    cursor.set_position(starting_position + ((p*4 + 3) as u64));
-                    adc2[1] = cursor.read_u8()?;
-                    self.traces[group*2][p] = u16::from_le_bytes(adc2)&0xfff;
+                for p in 0..self.samples {
+                    self.traces[group*2+1][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group*2][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
                 }
             }
             cursor.set_position(starting_position + ((self.samples*4) as u64));
@@ -370,7 +355,6 @@ impl V977 {
     }
 
     pub fn extract_data(&mut self, cursor: &mut Cursor<Vec<u8>>) -> Result<(), EvtItemError> {
-
         self.coinc = cursor.read_u16::<LittleEndian>()?;
         return Ok(());
     }
