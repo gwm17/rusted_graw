@@ -6,7 +6,7 @@ use std::error::Error;
 
 use super::event::Event;
 use super::merger::Merger;
-use super::ring_item::{RunInfo, Scalers, Physics};
+use super::ring_item::{RunInfo, ScalersItem, PhysicsItem};
 
 const GROUP_NAME: &str = "get";
 const META_NAME: &str = "meta";
@@ -118,7 +118,7 @@ impl HDFWriter {
     }
 
     /// Write scaler data from evt file
-    pub fn write_scalers(&self, scalers: Scalers, counter: u32) -> Result<(), hdf5::Error> {
+    pub fn write_scalers(&self, scalers: ScalersItem, counter: u32) -> Result<(), hdf5::Error> {
         let builder = self.scaler.new_dataset_builder();
         let mut name = format!("scaler{}_header", counter);
         builder.with_data(&scalers.get_header_array()).create(name.as_str())?;
@@ -129,7 +129,7 @@ impl HDFWriter {
     }
 
     /// Write physics data from evt file
-    pub fn write_physics(&self, physics: Physics, event_counter: &u64) -> Result<(), hdf5::Error> {
+    pub fn write_physics(&self, physics: PhysicsItem, event_counter: &u64) -> Result<(), hdf5::Error> {
         // write header
         let builder = self.evt.new_dataset_builder();
         let mut name = format!("evt{}_header", event_counter);

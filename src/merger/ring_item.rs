@@ -171,7 +171,7 @@ impl RunInfo {
 /// Scalers are composed of a header containing the timing of the scaler data
 /// and a data vector that contains the scalers themselves (32 bits)
 #[derive(Debug, Clone)]
-pub struct Scalers {
+pub struct ScalersItem {
     pub start_offset: u32,
     pub stop_offset: u32,
     pub timestamp: u32,
@@ -179,11 +179,11 @@ pub struct Scalers {
     pub data: Vec<u32>
 }
 
-impl TryFrom<RingItem> for Scalers {
+impl TryFrom<RingItem> for ScalersItem {
     type Error = EvtItemError;
     fn try_from(ring: RingItem) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(ring.bytes);
-        let mut info = Scalers::new();
+        let mut info = ScalersItem::new();
         info.start_offset = cursor.read_u32::<LittleEndian>()?;
         info.stop_offset = cursor.read_u32::<LittleEndian>()?;
         info.timestamp = cursor.read_u32::<LittleEndian>()?;
@@ -198,9 +198,9 @@ impl TryFrom<RingItem> for Scalers {
     }
 }
 
-impl Scalers {
-    pub fn new() -> Scalers {
-        Scalers {start_offset: 0, stop_offset: 0, timestamp: 0, incremental: 0, data: vec![]}
+impl ScalersItem {
+    pub fn new() -> ScalersItem {
+        ScalersItem {start_offset: 0, stop_offset: 0, timestamp: 0, incremental: 0, data: vec![]}
     }
 
     pub fn get_header_array(&self) -> Vec<u32> {
@@ -233,19 +233,19 @@ impl CounterItem {
 /// Physics contains the various modules read by the VMEUSB controller stack
 /// For now this an ad hoc list that only contains the modules present in the readout
 #[derive(Debug, Clone)]
-pub struct Physics {
+pub struct PhysicsItem {
     pub event: u32,
     pub timestamp: u32,
-    pub fadc: SIS3300,
-    pub coinc: V977,
+    pub fadc: SIS3300Item,
+    pub coinc: V977Item,
 }
 
-impl TryFrom<RingItem> for Physics {
+impl TryFrom<RingItem> for PhysicsItem {
     type Error = EvtItemError;
     fn try_from(ring: RingItem) -> Result<Self, Self::Error> {
         let _end_position = ring.bytes.len() as u64;
         let mut cursor = Cursor::new(ring.bytes);
-        let mut info = Physics::new();
+        let mut info = PhysicsItem::new();
         info.event = cursor.read_u32::<LittleEndian>()?;
         info.timestamp = cursor.read_u32::<LittleEndian>()?;
         if cursor.read_u16::<LittleEndian>()? != 0x1903 {
@@ -261,9 +261,9 @@ impl TryFrom<RingItem> for Physics {
     }
 }
 
-impl Physics {
-    pub fn new() -> Physics {
-        Physics {event: 0, timestamp: 0, fadc: SIS3300::new(), coinc: V977::new()}
+impl PhysicsItem {
+    pub fn new() -> PhysicsItem {
+        PhysicsItem {event: 0, timestamp: 0, fadc: SIS3300Item::new(), coinc: V977Item::new()}
     }
 
     pub fn get_header_array(&self) -> Vec<u32> {
@@ -273,15 +273,15 @@ impl Physics {
 
 // Struck module SIS3300: 8 channel flash ADC (12 bits)
 #[derive(Debug, Clone)]
-pub struct SIS3300 {
+pub struct SIS3300Item {
     pub traces: Vec<Vec<u16>>,
     pub samples: usize,
     pub channels: usize,
 }
 
-impl SIS3300 {
-    pub fn new() -> SIS3300 {
-        SIS3300 { traces: vec![vec![];8], samples: 0, channels: 0 }
+impl SIS3300Item {
+    pub fn new() -> SIS3300Item {
+        SIS3300Item { traces: vec![vec![];8], samples: 0, channels: 0 }
     }
 
     pub fn extract_data(&mut self, cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<(), EvtItemError> {
@@ -345,13 +345,13 @@ impl SIS3300 {
 
 /// CAEN module V977: 16 bit coincidence register
 #[derive(Debug, Clone)]
-pub struct V977 {
+pub struct V977Item {
     pub coinc: u16,
 }
 
-impl V977 {
-    pub fn new() -> V977 {
-        V977{coinc: 0}
+impl V977Item {
+    pub fn new() -> V977Item {
+        V977Item{coinc: 0}
     }
 
     pub fn extract_data(&mut self, cursor: &mut Cursor<Vec<u8>>) -> Result<(), EvtItemError> {
