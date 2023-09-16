@@ -1,9 +1,9 @@
 use std::sync::{Arc, Mutex};
 use std::path::PathBuf;
 
-use crate::merger::evt_file::EvtFile;
 use crate::merger::ring_item::{RunInfo, RingType, BeginRunItem, EndRunItem, PhysicsItem, ScalersItem, CounterItem};
 
+use super::evt_stack::EvtStack;
 use super::hdf_writer::HDFWriter;
 use super::pad_map::PadMap;
 use super::merger::Merger;
@@ -23,12 +23,12 @@ fn flush_final_event(mut evb: EventBuilder, mut writer: HDFWriter, event_counter
 
 /// Process the evt data for this run
 fn process_evt_data(evt_path: PathBuf, writer: &HDFWriter) -> Result<(), ProcessorError> {
-    let mut evt_file = EvtFile::new(&evt_path)?; // open evt file
+    let mut evt_stack = EvtStack::new(&evt_path)?; // open evt file
     let mut run_info = RunInfo::new();
     let mut scaler_counter: u32 = 0;
     let mut event_counter = CounterItem::new();
     loop {
-        if let Some(mut ring) = evt_file.get_next_item()? {
+        if let Some(mut ring) = evt_stack.get_next_ring_item()? {
             match ring.ring_type { // process each ring depending on its type
                 RingType::BeginRun => { // Begin run
                     run_info.begin = BeginRunItem::try_from(ring)?;
@@ -66,7 +66,7 @@ fn process_evt_data(evt_path: PathBuf, writer: &HDFWriter) -> Result<(), Process
 /// logic on the recieved data.
 pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), ProcessorError> {
 
-    let evt_path = config.get_evtrun()?;
+    let evt_path = config.get_evt_directory()?;
     let hdf_path = config.get_hdf_file_name()?;
     let pad_map = PadMap::new(&config.pad_map_path)?;
 

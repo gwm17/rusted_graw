@@ -40,12 +40,26 @@ impl EvtFile {
         Ok(EvtFile {file_handle: handle, file_path, size_bytes: size_bytes, is_eof: false, is_open: true })
     }
 
-    /// Retrieve the next RingItem from the buffer. Returns a Result<Option<RingItem>>. If the Option is None,
-    /// the file has run out of data.
-    pub fn get_next_item(&mut self) -> Result<Option<RingItem>, EvtFileError>  {
+    pub fn is_eof(&self) -> bool {
+        return self.is_eof
+    }
+
+    /// Retrieve the next RingItem from the buffer. Returns a Result<RingItem>.
+    pub fn get_next_item(&mut self) -> Result<RingItem, EvtFileError>  {
         //First need to query the size of the next ring item.
         let current_position: u64 = self.file_handle.stream_position()?;
-        let item_size = self.file_handle.read_u32::<LittleEndian>()? as usize;
+        let item_size = match self.file_handle.read_u32::<LittleEndian>() {
+            Ok(val) => val as usize,
+            Err(e) => match e.kind() {
+                std::io::ErrorKind::UnexpectedEof => {
+                    self.is_eof = true;
+                    return Err(EvtFileError::EndOfFile);
+                }
+                _ => {
+                    return Err(EvtFileError::IOError(e));
+                }
+            }
+        };
         
         self.file_handle.seek(SeekFrom::Start(current_position))?; // Go back to start of item (size is self contained)
         let mut buffer: Vec<u8> = vec![0; item_size]; // set size of bytes vector
@@ -60,7 +74,7 @@ impl EvtFile {
                 }
             }
             Ok(()) => {
-                return Ok(Some(RingItem::try_from(buffer)?));
+                return Ok(RingItem::try_from(buffer)?);
             }
         }
     }
