@@ -116,12 +116,12 @@ impl Error for GrawFileError {
     EvtItem errors
  */
 
- #[derive(Debug)]
- pub enum EvtItemError {
+#[derive(Debug)]
+pub enum EvtItemError {
     IOError(std::io::Error),
     StackOrderError,
     ItemSizeError
- }
+}
 
  impl Display for EvtItemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -145,43 +145,80 @@ impl Error for EvtItemError {
 
 /*
     EvtFile errors
- */
+*/
 
- #[derive(Debug)]
- pub enum EvtFileError {
-     BadItem(EvtItemError),
-     BadFilePath(PathBuf),
-     EndOfFile,
-     IOError(std::io::Error)
- }
+#[derive(Debug)]
+pub enum EvtFileError {
+    BadItem(EvtItemError),
+    BadFilePath(PathBuf),
+    EndOfFile,
+    IOError(std::io::Error)
+}
+
+impl From<EvtItemError> for EvtFileError {
+    fn from(value: EvtItemError) -> Self {
+        EvtFileError::BadItem(value)
+    }
+}
+
+impl From<std::io::Error> for EvtFileError {
+    fn from(value: std::io::Error) -> Self {
+        EvtFileError::IOError(value)
+    }
+}
+
+impl Display for EvtFileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EvtFileError::BadItem(frame) => write!(f, "Bad item found when reading evt File! Error: {}", frame),
+            EvtFileError::BadFilePath(path) => write!(f, "File {} does not exist at EvtFile::new!", path.display()),
+            EvtFileError::EndOfFile => write!(f, "File reached end!"),
+            EvtFileError::IOError(e) => write!(f, "Evt File received an io error: {}!", e)
+        }
+    }
+}
+
+impl Error for EvtFileError {
+
+}
+
+/*
+    EvtStack errors
+*/
+
+#[derive(Debug)]
+pub enum EvtStackError {
+    IOError(std::io::Error),
+    NoMatchingFiles,
+    FileError(EvtFileError)
+}
  
- impl From<EvtItemError> for EvtFileError {
-     fn from(value: EvtItemError) -> Self {
-         EvtFileError::BadItem(value)
-     }
- }
- 
- impl From<std::io::Error> for EvtFileError {
-     fn from(value: std::io::Error) -> Self {
-         EvtFileError::IOError(value)
-     }
- }
- 
- impl Display for EvtFileError {
-     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-         match self {
-             EvtFileError::BadItem(frame) => write!(f, "Bad item found when reading evt File! Error: {}", frame),
-             EvtFileError::BadFilePath(path) => write!(f, "File {} does not exist at EvtFile::new!", path.display()),
-             EvtFileError::EndOfFile => write!(f, "File reached end!"),
-             EvtFileError::IOError(e) => write!(f, "Evt File received an io error: {}!", e)
-         }
-     }
- }
- 
- impl Error for EvtFileError {
- 
- }
- 
+impl From<EvtFileError> for EvtStackError {
+    fn from(value: EvtFileError) -> Self {
+        Self::FileError(value)
+    }
+}
+
+impl From<std::io::Error> for EvtStackError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IOError(value)
+    }
+}
+
+impl Display for EvtStackError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::IOError(e) => write!(f, "EvtStack recieved an io error: {}", e),
+            Self::FileError(e) => write!(f, "EvtStack recieved an EvtFileError: {}", e),
+            Self::NoMatchingFiles => write!(f, "EvtStack did not find any matching files in the given directory!")
+        }
+    }
+}
+
+impl Error for EvtStackError {
+
+}
+
  /*
     AsadStack errors
  */
@@ -396,7 +433,8 @@ pub enum ProcessorError {
     HDFError(hdf5::Error),
     ConfigError(ConfigError),
     MapError(PadMapError),
-    EvtError(EvtFileError)
+    EvtError(EvtStackError),
+    BadRingConversion(EvtItemError)
 }
 
 impl From<MergerError> for ProcessorError {
@@ -429,9 +467,15 @@ impl From<PadMapError> for ProcessorError {
     }
 }
 
+impl From<EvtStackError> for ProcessorError {
+    fn from(value: EvtStackError) -> Self {
+        Self::EvtError(value)
+    }
+}
+
 impl From<EvtItemError> for ProcessorError {
     fn from(value: EvtItemError) -> Self {
-        Self::EvtError(EvtFileError::BadItem(value))
+        Self::BadRingConversion(value)
     }
 }
 
@@ -443,17 +487,12 @@ impl Display for ProcessorError {
             Self::HDFError(e) => write!(f, "Processor failed at HDFWriter with error: {}", e),
             Self::ConfigError(e) => write!(f, "Processor failed due to Configuration error: {}", e),
             Self::MapError(e) => write!(f, "Processor failed due to PadMap error: {}", e),
-            Self::EvtError(e) => write!(f, "Processor failed due to evt file error: {}", e)
+            Self::EvtError(e) => write!(f, "Processor failed due to evt stack error: {}", e),
+            Self::BadRingConversion(e) => write!(f, "Processor failed due to bad ring item conversion: {}", e)
         }
     }
 }
 
 impl Error for ProcessorError {
 
-}
-
-impl From<EvtFileError> for ProcessorError {
-    fn from(value: EvtFileError) -> Self {
-        Self::EvtError(value)
-    }
 }

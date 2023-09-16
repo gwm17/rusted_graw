@@ -61,12 +61,12 @@ impl Config {
     }
 
     /// Construct the evt file name
-    pub fn get_evtrun(&self) -> Result<PathBuf, ConfigError> {
-        let run_name: PathBuf = self.evt_path.join(format!("run{}/{}.evt", self.run_number, self.get_evtrun_str()));
-        if run_name.exists() {
-            return Ok(run_name);
+    pub fn get_evt_directory(&self) -> Result<PathBuf, ConfigError> {
+        let run_dir: PathBuf = self.evt_path.join(format!("run{}", self.run_number));
+        if run_dir.exists() {
+            return Ok(run_dir);
         } else {
-            return Err(ConfigError::BadFilePath(run_name));
+            return Err(ConfigError::BadFilePath(run_dir));
         }
     }
 
@@ -84,11 +84,7 @@ impl Config {
     fn get_run_str(&self) -> String {
         return format!("run_{:0>4}", self.run_number);
     }
-
-    /// Construct the evt run string using the FRIB DAQ format
-    fn get_evtrun_str(&self) -> String {
-        return format!("run-{:0>4}-00", self.run_number);
-    }
+    
 }
 
 
