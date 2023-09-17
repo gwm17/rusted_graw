@@ -22,7 +22,7 @@ pub struct Merger {
 impl Merger {
 
     /// Create a new merger. Requires the path to the graw data files
-    pub fn new(config: &Config) -> Result<Self, MergerError> {
+    pub fn new(config: &Config, run_number: i32) -> Result<Self, MergerError> {
 
         let mut merger = Merger {
             file_stacks: Vec::new(),
@@ -33,9 +33,9 @@ impl Merger {
         let mut graw_dir: PathBuf;
         for cobo in 0..NUMBER_OF_COBOS {
             if config.online {
-                graw_dir = config.get_online_directory(&cobo)?;
+                graw_dir = config.get_online_directory(run_number, &cobo)?;
             } else {
-                graw_dir = config.get_run_directory(&cobo)?;
+                graw_dir = config.get_run_directory(run_number,&cobo)?;
             }
             for asad in 0..NUMBER_OF_ASADS {
                 match AsadStack::new(&graw_dir, cobo as i32, asad as i32) {

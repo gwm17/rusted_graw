@@ -64,14 +64,14 @@ fn process_evt_data(evt_path: PathBuf, writer: &HDFWriter) -> Result<(), Process
 
 /// The main loop of rusted_graw. This takes in a config (and progress monitor) and preforms the merging
 /// logic on the recieved data.
-pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), ProcessorError> {
+pub fn process_run(config: &Config, run_number: i32, progress: Arc<Mutex<f32>>) -> Result<(), ProcessorError> {
 
-    let evt_path = config.get_evt_directory()?;
-    let hdf_path = config.get_hdf_file_name()?;
+    let evt_path = config.get_evt_directory(run_number)?;
+    let hdf_path = config.get_hdf_file_name(run_number)?;
     let pad_map = PadMap::new(&config.pad_map_path)?;
 
     //Initialize the merger, event builder, and hdf writer
-    let mut merger = Merger::new(&config)?;
+    let mut merger = Merger::new(config, run_number)?;
     log::info!("Total run size: {}", human_bytes::human_bytes(*merger.get_total_data_size() as f64));
     let mut evb = EventBuilder::new(pad_map);
     let mut writer = HDFWriter::new(&hdf_path)?;
@@ -114,7 +114,24 @@ pub fn process_run(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Proc
             break;
         }
     }
+    if let Ok(mut bar) = progress.lock() {
+        *bar = 1.0;
+    }
     log::info!("Done with get data.");
     
     return Ok(())
+}
+
+pub fn process(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), ProcessorError> {
+    for run in config.first_run_number..(config.last_run_number+1) {
+        if let Ok(mut bar) = progress.lock() {
+            *bar = 0.0;
+        }
+        if config.does_run_exist(run) {
+            process_run(&config, run, progress.clone())?;
+        } else {
+            log::info!("Run {} does not exist, skipping...", run);
+        }
+    }
+    Ok(())
 }
