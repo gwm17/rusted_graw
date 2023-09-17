@@ -33,6 +33,7 @@ pub struct Event {
     nframes: i32,
     traces: FxHashMap<HardwareID, Array1<i16>>, //maps pad id to the trace for that pad
     pub timestamp: u64,
+    pub timestampother: u64,
     pub event_id: u32
 }
 
@@ -40,7 +41,7 @@ impl Event {
 
     /// Make a new event from a list of GrawFrames
     pub fn new(pad_map: &PadMap, frames: &Vec<GrawFrame>) -> Result<Self, EventError> {
-        let mut event = Event { nframes: 0, traces: FxHashMap::default(), timestamp: 0, event_id: 0 };
+        let mut event = Event { nframes: 0, traces: FxHashMap::default(), timestamp: 0, timestampother: 0, event_id: 0 };
         for frame in frames {
             event.append_frame(pad_map, frame)?;
         }
@@ -67,7 +68,7 @@ impl Event {
     }
 
     pub fn get_header_array(&self) -> Array1<f64> {
-        ndarray::arr1(&[self.event_id as f64, self.timestamp as f64, self.timestamp as f64])
+        ndarray::arr1(&[self.event_id as f64, self.timestamp as f64, self.timestampother as f64])
     }
 
     /// Add a frame to the event. Sanity checks can return errors
@@ -75,10 +76,15 @@ impl Event {
 
         if self.nframes == 0 { //first frame
             self.event_id = frame.header.event_id;
-            self.timestamp = frame.header.event_time;
         }
         else if self.event_id != frame.header.event_id {
             return Err(EventError::MismatchedEventID(frame.header.event_id, self.event_id));
+        }
+
+        if frame.header.cobo_id == COBO_WITH_TIMESTAMP { // this cobo has a TS in sync with other DAQ
+            self.timestampother = frame.header.event_time;
+        } else { // all other cobos have the same TS from Mutant
+            self.timestamp = frame.header.event_time;
         }
 
 

@@ -57,12 +57,12 @@ impl HDFWriter {
         let body_builder =  self.group.new_dataset_builder();
         let event_body_name = format!("evt{}_data", event_counter);
         let event_header_name = format!("evt{}_header", event_counter);
-        if u64::from(event.event_id) < self.meta_data[0] { // Catch first event
-            self.meta_data[0] = u64::from(event.event_id);
+        if *event_counter == 0 { // Catch first event
+            self.meta_data[0] = *event_counter;
             self.meta_data[1] = event.timestamp;
         }
-        if u64::from(event.event_id) > self.meta_data[2] { // Catch last event
-            self.meta_data[2] = u64::from(event.event_id);
+        if *event_counter > self.meta_data[2] { // Catch last event
+            self.meta_data[2] = *event_counter;
             self.meta_data[3] = event.timestamp;
         }
         header_builder.with_data(&event.get_header_array())
