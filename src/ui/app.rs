@@ -38,7 +38,7 @@ impl MergerApp {
                 println!("Sync error! Progress could not be reset!");
             }
 
-            self.worker = Some(std::thread::spawn(|| crate::merger::process::process_run(conf, prog)))
+            self.worker = Some(std::thread::spawn(|| crate::merger::process::process(conf, prog)))
         }
     }
 
@@ -170,8 +170,13 @@ impl eframe::App for MergerApp {
                 }
                 ui.end_row();
 
-                ui.label("Run Number");
-                ui.add(eframe::egui::widgets::DragValue::new(&mut self.config.run_number).speed(1));
+                ui.label("First Run Number");
+                ui.add(eframe::egui::widgets::DragValue::new(&mut self.config.first_run_number).speed(1));
+                ui.end_row();
+                
+                ui.label("Last Run Number");
+                ui.add(eframe::egui::widgets::DragValue::new(&mut self.config.last_run_number).speed(1));
+                ui.end_row()
             });
 
             //Controls
