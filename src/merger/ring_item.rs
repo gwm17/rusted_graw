@@ -218,7 +218,8 @@ impl TryFrom<RingItem> for ScalersItem {
         info.start_offset = cursor.read_u32::<LittleEndian>()?;
         info.stop_offset = cursor.read_u32::<LittleEndian>()?;
         info.timestamp = cursor.read_u32::<LittleEndian>()?;
-        let count = cursor.read_u32::<LittleEndian>()?;
+        let _dummy = cursor.read_u32::<LittleEndian>()?; // Dummy read
+        let count = cursor.read_u32::<LittleEndian>()?; // This is where the number of scalers actually is
         info.incremental = cursor.read_u32::<LittleEndian>()?;
         info.data.resize(count as usize, 0);
         for value in info.data.iter_mut() {
