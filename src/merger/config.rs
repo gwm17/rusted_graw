@@ -42,7 +42,11 @@ impl Config {
     pub fn does_run_exist(&self, run_number: i32) -> bool {
         let run_dir: PathBuf = self.graw_path.join(self.get_run_str(run_number));
         let evt_dir: PathBuf = self.evt_path.join(format!("run{}", run_number));
-        return run_dir.exists() && evt_dir.exists();
+        if self.online { // Don't check run_dir if online
+            return evt_dir.exists();
+        } else {
+            return run_dir.exists() && evt_dir.exists();
+        }
     }
 
     /// Construct the run directory
