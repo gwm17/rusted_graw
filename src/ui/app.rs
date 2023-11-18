@@ -113,17 +113,6 @@ impl eframe::App for MergerApp {
             ui.label(RichText::new("Configuration").color(Color32::LIGHT_BLUE).size(18.0));
             eframe::egui::Grid::new("ConfigGrid").show(ui, |ui| {
                 //GRAW directory
-                ui.label(format!("GRAW directory: {}", self.config.graw_path.display()));
-                if ui.button("Open...").clicked() {
-                    if let Ok(Some(path)) = native_dialog::FileDialog::new()
-                                            .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
-                                            .show_open_single_dir()
-                    {
-                        self.config.graw_path = path;
-                    }
-                }
-                ui.end_row();
-
                 ui.checkbox(&mut self.config.online, "GRAW files from online source");
                 ui.end_row();
                 //Online data requires a further path extension based on the experiment
@@ -131,8 +120,19 @@ impl eframe::App for MergerApp {
                     ui.label("Experiment:");
                     ui.text_edit_singleline(&mut self.config.experiment);
                     ui.end_row();
+                } else {
+                    ui.label(format!("GRAW directory: {}", self.config.graw_path.display()));
+                    if ui.button("Open...").clicked() {
+                        if let Ok(Some(path)) = native_dialog::FileDialog::new()
+                                            .set_location(&std::env::current_dir().expect("Couldn't access runtime directory"))
+                                            .show_open_single_dir()
+                        {
+                            self.config.graw_path = path;
+                        }
+                    }
+                    ui.end_row();
                 }
-
+                
                 //EVT directory
                 ui.label(format!("EVT directory: {}", self.config.evt_path.display()));
                 if ui.button("Open...").clicked() {
