@@ -18,5 +18,5 @@ native-dialog = { version = "0.6.4", features = ["windows_dpi_awareness"] }
 ndarray = "0.15.6"
 serde = "1.0.193"
 serde_derive = "1.0.166"
-serde_yaml = "0.9.22"
+serde_yaml = "0.9.27"
 simplelog = "0.12.1"
