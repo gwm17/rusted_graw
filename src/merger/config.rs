@@ -1,5 +1,5 @@
+use serde_derive::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use serde_derive::{Serialize, Deserialize};
 
 use super::error::ConfigError;
 
@@ -18,14 +18,19 @@ pub struct Config {
     pub experiment: String,
 }
 
-
 impl Config {
-
     #[allow(dead_code)]
     pub fn default() -> Self {
-        Self { graw_path: PathBuf::from("None"), evt_path: PathBuf::from("None"), hdf_path: PathBuf::from("None"), 
-        pad_map_path: PathBuf::from("None"), first_run_number: 0, last_run_number: 0,
-        online: false, experiment: String::from("")}
+        Self {
+            graw_path: PathBuf::from("None"),
+            evt_path: PathBuf::from("None"),
+            hdf_path: PathBuf::from("None"),
+            pad_map_path: PathBuf::from("None"),
+            first_run_number: 0,
+            last_run_number: 0,
+            online: false,
+            experiment: String::from(""),
+        }
     }
 
     /// Read the configuration in a YAML file
@@ -42,7 +47,8 @@ impl Config {
     pub fn does_run_exist(&self, run_number: i32) -> bool {
         let run_dir: PathBuf = self.graw_path.join(self.get_run_str(run_number));
         let evt_dir: PathBuf = self.evt_path.join(format!("run{}", run_number));
-        if self.online { // Don't check run_dir if online
+        if self.online {
+            // Don't check run_dir if online
             return evt_dir.exists();
         } else {
             return run_dir.exists() && evt_dir.exists();
@@ -84,7 +90,9 @@ impl Config {
 
     /// Construct the HDF5 file name
     pub fn get_hdf_file_name(&self, run_number: i32) -> Result<PathBuf, ConfigError> {
-        let hdf_file_path: PathBuf = self.hdf_path.join(format!("{}.h5", self.get_run_str(run_number)));
+        let hdf_file_path: PathBuf = self
+            .hdf_path
+            .join(format!("{}.h5", self.get_run_str(run_number)));
         if self.hdf_path.exists() {
             return Ok(hdf_file_path);
         } else {
@@ -96,7 +104,4 @@ impl Config {
     fn get_run_str(&self, run_number: i32) -> String {
         return format!("run_{:0>4}", run_number);
     }
-    
 }
-
-

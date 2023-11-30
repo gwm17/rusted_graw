@@ -1,4 +1,3 @@
-
 // Data sizes and types
 pub const EXPECTED_META_TYPE: u8 = 8;
 pub const EXPECTED_HEADER_SIZE: u16 = 1;

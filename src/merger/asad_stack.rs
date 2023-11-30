@@ -1,9 +1,9 @@
-use std::path::{PathBuf, Path};
 use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 
+use super::error::{AsadStackError, GrawFileError};
 use super::graw_file::GrawFile;
-use super::error::{GrawFileError, AsadStackError};
-use super::graw_frame::{GrawFrame, FrameMetadata};
+use super::graw_frame::{FrameMetadata, GrawFrame};
 
 /// # AsadStack
 /// AsadStack is representation of all of the files for a specific AsAd in a specific CoBo.
@@ -12,7 +12,7 @@ use super::graw_frame::{GrawFrame, FrameMetadata};
 /// AsadStack searches through the run directory structure and finds all files associated with with that specific AsAd-CoBo, sorts the files,
 /// and then opens to earliest file as the active file. When that active file runs out of data, the stack moves to the next file in the queue,
 /// and so on.
-/// 
+///
 /// ## Why
 /// This is more advantageous than simply opening all files, because we don't want to have to search through all possible files to find the earliest frame
 /// when we dont have to. It can also save some memory/optimization by not having to buffer up all of the files around.
@@ -25,20 +25,32 @@ pub struct AsadStack {
     asad_number: i32,
     parent_path: PathBuf,
     total_stack_size_bytes: u64,
-    is_ended: bool
+    is_ended: bool,
 }
 
 impl AsadStack {
-
     /// Create a new AsadStack for a given AsAd-CoBo combo in a given directory
-    pub fn new(data_path: &Path, cobo_number: i32, asad_number: i32) -> Result<Self, AsadStackError> {
-        
-//        let parent_path = data_path.join(format!("mm{}", cobo_number)); //Each cobo gets its own MacMini (hence mm) and therefore its own directory
+    pub fn new(
+        data_path: &Path,
+        cobo_number: i32,
+        asad_number: i32,
+    ) -> Result<Self, AsadStackError> {
+        //        let parent_path = data_path.join(format!("mm{}", cobo_number)); //Each cobo gets its own MacMini (hence mm) and therefore its own directory
         let parent_path = data_path.join("");
 
-        let (mut file_stack, total_stack_size_bytes) = Self::get_file_stack(&parent_path, &cobo_number, &asad_number)?;
-        if let Some(path) = file_stack.pop_front() { //Activate the first file
-            Ok(AsadStack { active_file: GrawFile::new(&path)?, file_stack, cobo_number, asad_number, parent_path, total_stack_size_bytes, is_ended: false })
+        let (mut file_stack, total_stack_size_bytes) =
+            Self::get_file_stack(&parent_path, &cobo_number, &asad_number)?;
+        if let Some(path) = file_stack.pop_front() {
+            //Activate the first file
+            Ok(AsadStack {
+                active_file: GrawFile::new(&path)?,
+                file_stack,
+                cobo_number,
+                asad_number,
+                parent_path,
+                total_stack_size_bytes,
+                is_ended: false,
+            })
         } else {
             Err(AsadStackError::NoMatchingFiles)
         }
@@ -47,7 +59,7 @@ impl AsadStack {
     /// Query the active file for the next frame's metadata. If there is nothing left to read, the stack
     /// attempts to move to the next file. Returns a Result<Option<FrameMetadata>>. If the Option is None,
     /// the stack has run out of data.
-    /// 
+    ///
     /// # IMPORTANT
     /// The metadata for the next frame should *always* be queried before attempting to retrieve the next frame.
     /// The get_next_frame will not attempt to move to the next file in the stack and will simply return an error if there is
@@ -63,7 +75,7 @@ impl AsadStack {
                     self.move_to_next_file()?;
                     continue;
                 }
-                Err(e) => return Err(AsadStackError::FileError(e))
+                Err(e) => return Err(AsadStackError::FileError(e)),
             }
         }
     }
@@ -105,7 +117,11 @@ impl AsadStack {
     }
 
     /// Go get the files
-    pub fn get_file_stack(parent_path: &Path, cobo_number: &i32, asad_number: &i32) -> Result<(VecDeque<PathBuf>, u64), AsadStackError> {
+    pub fn get_file_stack(
+        parent_path: &Path,
+        cobo_number: &i32,
+        asad_number: &i32,
+    ) -> Result<(VecDeque<PathBuf>, u64), AsadStackError> {
         let stack: VecDeque<PathBuf>;
         let mut file_list: Vec<PathBuf> = Vec::new();
         let start_pattern = format!("CoBo{}_AsAd{}", *cobo_number, *asad_number);
@@ -122,7 +138,9 @@ impl AsadStack {
             return Err(AsadStackError::NoMatchingFiles);
         }
 
-        let total_stack_size_bytes = file_list.iter().fold(0, |sum, path| sum + path.metadata().unwrap().len());
+        let total_stack_size_bytes = file_list
+            .iter()
+            .fold(0, |sum, path| sum + path.metadata().unwrap().len());
 
         file_list.sort(); // Can sort standard. The only change should be in the number at the tail.
         stack = file_list.into();
@@ -139,12 +157,10 @@ impl AsadStack {
                     self.active_file = next_file;
                     return Ok(());
                 }
-            }
-            else {
+            } else {
                 self.is_ended = true;
                 return Ok(());
             }
         }
     }
-
 }

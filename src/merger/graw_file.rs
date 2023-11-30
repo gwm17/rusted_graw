@@ -1,15 +1,15 @@
 use std::fs::File;
-use std::io::{Seek, Read, Cursor};
+use std::io::{Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 
-use super::graw_frame::{FrameMetadata, GrawFrame, GrawFrameHeader};
 use super::constants::*;
 use super::error::GrawFileError;
+use super::graw_frame::{FrameMetadata, GrawFrame, GrawFrameHeader};
 
 /// # GrawFile
 /// A .graw file is a raw data file produced by the AGET electronics system. Each graw file is produced by a single AsAd board. Each AsAd board houses 4
 /// AGET digitizer components. 4 AsAd's are managed by a single CoBo.
-/// 
+///
 /// The functional purpose of the GrawFile is to provide an interface to the underlying binary data, by providing methods which query the metadata (event data) of the next GrawFrame
 /// (the functional data unit of a GrawFile) as well as retrieving the next GrawFrame.
 #[allow(dead_code)]
@@ -20,11 +20,10 @@ pub struct GrawFile {
     size_bytes: u64,
     next_frame_metadata: FrameMetadata, // Store this to reduce read calls
     is_eof: bool,
-    is_open: bool
+    is_open: bool,
 }
 
 impl GrawFile {
-
     /// Open a graw file in read-only mode.
     pub fn new(path: &Path) -> Result<Self, GrawFileError> {
         if !path.exists() {
@@ -36,7 +35,14 @@ impl GrawFile {
         let size_bytes = file.metadata()?.len();
         let handle = file;
 
-        Ok(GrawFile {  file_handle: handle, file_path, size_bytes: size_bytes, next_frame_metadata: FrameMetadata::default(), is_eof: false, is_open: true })
+        Ok(GrawFile {
+            file_handle: handle,
+            file_path,
+            size_bytes: size_bytes,
+            next_frame_metadata: FrameMetadata::default(),
+            is_eof: false,
+            is_open: true,
+        })
     }
 
     /// Retrieve the next GrawFrame from the file
@@ -54,11 +60,11 @@ impl GrawFile {
                 std::io::ErrorKind::UnexpectedEof => {
                     self.is_eof = true;
                     return Err(GrawFileError::EndOfFile);
-                },
+                }
                 _ => {
                     return Err(GrawFileError::IOError(e));
                 }
-            }
+            },
             Ok(()) => {
                 return Ok(GrawFrame::try_from(frame_word)?);
             }
@@ -109,13 +115,13 @@ impl GrawFile {
                 _ => {
                     return Err(GrawFileError::IOError(e));
                 }
-            }
-            Ok(_) => ()
+            },
+            Ok(_) => (),
         }
         let header = GrawFrameHeader::read_from_buffer(&mut Cursor::new(header_word))?;
         //Return to the start of the header
-        self.file_handle.seek(std::io::SeekFrom::Start(current_position))?;
+        self.file_handle
+            .seek(std::io::SeekFrom::Start(current_position))?;
         Ok(header)
     }
-
 }

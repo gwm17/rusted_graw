@@ -1,5 +1,5 @@
 use std::fs::File;
-use std::io::{Seek, Read, SeekFrom};
+use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
 
 use byteorder::LittleEndian;
@@ -21,11 +21,10 @@ pub struct EvtFile {
     file_path: PathBuf,
     size_bytes: u64,
     is_eof: bool,
-    is_open: bool
+    is_open: bool,
 }
 
 impl EvtFile {
-
     /// Open a evt file in read-only mode.
     pub fn new(path: &Path) -> Result<Self, EvtFileError> {
         if !path.exists() {
@@ -37,15 +36,21 @@ impl EvtFile {
         let size_bytes = file.metadata()?.len();
         let handle = file;
 
-        Ok(EvtFile {file_handle: handle, file_path, size_bytes: size_bytes, is_eof: false, is_open: true })
+        Ok(EvtFile {
+            file_handle: handle,
+            file_path,
+            size_bytes: size_bytes,
+            is_eof: false,
+            is_open: true,
+        })
     }
 
     pub fn is_eof(&self) -> bool {
-        return self.is_eof
+        return self.is_eof;
     }
 
     /// Retrieve the next RingItem from the buffer. Returns a Result<RingItem>.
-    pub fn get_next_item(&mut self) -> Result<RingItem, EvtFileError>  {
+    pub fn get_next_item(&mut self) -> Result<RingItem, EvtFileError> {
         //First need to query the size of the next ring item.
         let current_position: u64 = self.file_handle.stream_position()?;
         let item_size = match self.file_handle.read_u32::<LittleEndian>() {
@@ -58,25 +63,25 @@ impl EvtFile {
                 _ => {
                     return Err(EvtFileError::IOError(e));
                 }
-            }
+            },
         };
-        
+
         self.file_handle.seek(SeekFrom::Start(current_position))?; // Go back to start of item (size is self contained)
         let mut buffer: Vec<u8> = vec![0; item_size]; // set size of bytes vector
-        match self.file_handle.read_exact(&mut buffer) { // try to read ring item
+        match self.file_handle.read_exact(&mut buffer) {
+            // try to read ring item
             Err(e) => match e.kind() {
                 std::io::ErrorKind::UnexpectedEof => {
                     self.is_eof = true;
                     return Err(EvtFileError::EndOfFile);
-                },
+                }
                 _ => {
                     return Err(EvtFileError::IOError(e));
                 }
-            }
+            },
             Ok(()) => {
                 return Ok(RingItem::try_from(buffer)?);
             }
         }
     }
-
 }

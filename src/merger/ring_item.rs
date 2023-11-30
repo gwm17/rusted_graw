@@ -1,6 +1,6 @@
-use std::io::{Cursor, Read};
-use byteorder::{ReadBytesExt, LittleEndian};
 use super::error::EvtItemError;
+use byteorder::{LittleEndian, ReadBytesExt};
+use std::io::{Cursor, Read};
 
 //These are the literal values for the different ring item type fields
 const BEGIN_RUN_VAL: u8 = 1;
@@ -15,9 +15,8 @@ const RING_HEADER_PRESENT: u8 = 20;
 const HEADER_PRESENT_INDEX: usize = 28;
 const NO_HEADER_INDEX: usize = 12;
 
-
 /// # RingType
-/// RingType is an enum representing the type of data stored within a FRIBDAQ ring. This allows 
+/// RingType is an enum representing the type of data stored within a FRIBDAQ ring. This allows
 /// for casting a generic RingItem to its functional type.
 #[derive(Debug, Clone)]
 pub enum RingType {
@@ -40,7 +39,7 @@ impl From<u8> for RingType {
             SCALERS_VAL => RingType::Scalers,
             PHYSICS_VAL => RingType::Physics,
             COUNTER_VAL => RingType::Counter,
-            _ => RingType::Invalid
+            _ => RingType::Invalid,
         }
     }
 }
@@ -52,10 +51,10 @@ impl From<u8> for RingType {
 pub struct RingItem {
     pub size: usize,
     pub bytes: Vec<u8>,
-    pub ring_type: RingType
+    pub ring_type: RingType,
 }
 
-/// Convert the raw byte buffer to a RingItem. 
+/// Convert the raw byte buffer to a RingItem.
 impl TryFrom<Vec<u8>> for RingItem {
     type Error = EvtItemError;
     fn try_from(buffer: Vec<u8>) -> Result<Self, Self::Error> {
@@ -64,7 +63,7 @@ impl TryFrom<Vec<u8>> for RingItem {
             let type_data = buffer.get(4);
             match type_data {
                 Some(data) => rt_data = data.clone(),
-                None => return Err(EvtItemError::ItemSizeError)
+                None => return Err(EvtItemError::ItemSizeError),
             };
         }
         //RingItems can optionally have a header. We trim this header
@@ -76,15 +75,22 @@ impl TryFrom<Vec<u8>> for RingItem {
         } else {
             return Err(EvtItemError::ItemSizeError);
         }
-        Ok(Self { size: buffer.len(), bytes: item_data_buffer, ring_type: RingType::from(rt_data) })
+        Ok(Self {
+            size: buffer.len(),
+            bytes: item_data_buffer,
+            ring_type: RingType::from(rt_data),
+        })
     }
 }
 
 impl RingItem {
-
     #[allow(dead_code)]
     pub fn new() -> Self {
-        Self {size: 0, bytes: vec![], ring_type: RingType::Invalid}
+        Self {
+            size: 0,
+            bytes: vec![],
+            ring_type: RingType::Invalid,
+        }
     }
 
     /// Remove VMUSB buffer boundaries from the RingItem data buffer.
@@ -94,23 +100,22 @@ impl RingItem {
     /// Only use this function for PhysicsItems
     pub fn remove_boundaries(&mut self) {
         let mut wlength: u16;
-        let mut buf: [u8;2] = [0,0];
+        let mut buf: [u8; 2] = [0, 0];
         let mut ind: usize = 0;
         while ind < self.bytes.len() {
-            buf.copy_from_slice(&self.bytes[ind..ind+2]);
-            wlength = u16::from_le_bytes(buf)&0xfff; // buffer length
+            buf.copy_from_slice(&self.bytes[ind..ind + 2]);
+            wlength = u16::from_le_bytes(buf) & 0xfff; // buffer length
             self.bytes.remove(ind);
             self.bytes.remove(ind); // 2 bytes to remove
-            ind += usize::try_from(wlength*2).unwrap(); // next boundary
+            ind += usize::try_from(wlength * 2).unwrap(); // next boundary
         }
     }
-
 }
 
 //Below are the various explicit ring item types. RingItems can be cast into these objects using
 //try_from semantics.
 
-/// # BeginRunItem 
+/// # BeginRunItem
 /// RingItem which contains the run number, the start time, and the run title
 #[derive(Debug, Clone)]
 pub struct BeginRunItem {
@@ -122,7 +127,7 @@ pub struct BeginRunItem {
 /// Cast a RingItem to a BeginRunItem
 impl TryFrom<RingItem> for BeginRunItem {
     type Error = EvtItemError;
-    fn try_from(ring: RingItem) -> Result<Self, EvtItemError>  {
+    fn try_from(ring: RingItem) -> Result<Self, EvtItemError> {
         let mut cursor = Cursor::new(ring.bytes);
         let mut info = BeginRunItem::new();
         info.run = cursor.read_u32::<LittleEndian>()?;
@@ -136,17 +141,20 @@ impl TryFrom<RingItem> for BeginRunItem {
 
 impl BeginRunItem {
     pub fn new() -> Self {
-        Self {run: 0, start: 0, title: String::new()}
+        Self {
+            run: 0,
+            start: 0,
+            title: String::new(),
+        }
     }
 }
-
 
 /// # EndRunItem
 /// RingItem which contains the run stop time, and the ellapsed time.
 #[derive(Debug, Clone)]
 pub struct EndRunItem {
     pub stop: u32,
-    pub time: u32
+    pub time: u32,
 }
 
 /// Cast a RingItem to an EndRunItem
@@ -155,7 +163,7 @@ impl TryFrom<RingItem> for EndRunItem {
     fn try_from(ring: RingItem) -> Result<Self, Self::Error> {
         let mut cursor = Cursor::new(ring.bytes);
         let mut info = EndRunItem::new();
-        
+
         info.stop = cursor.read_u32::<LittleEndian>()?;
         info.time = cursor.read_u32::<LittleEndian>()?;
         return Ok(info);
@@ -171,15 +179,17 @@ impl EndRunItem {
 /// # RunInfo
 /// Simple container for the begin and end run info for ease of use with HDF
 #[derive(Debug, Clone)]
-pub struct RunInfo
-{
+pub struct RunInfo {
     pub begin: BeginRunItem,
-    pub end: EndRunItem
+    pub end: EndRunItem,
 }
 
 impl RunInfo {
     pub fn new() -> RunInfo {
-        RunInfo { begin: BeginRunItem::new(), end: EndRunItem::new() }
+        RunInfo {
+            begin: BeginRunItem::new(),
+            end: EndRunItem::new(),
+        }
     }
 }
 
@@ -191,12 +201,15 @@ impl RunInfo {
 
     /// Get a formatted string of the EndRunItem
     pub fn print_end(&self) -> String {
-        format!("Run Number: {} Ellapsed Time: {}s", self.begin.run, self.end.time)
+        format!(
+            "Run Number: {} Ellapsed Time: {}s",
+            self.begin.run, self.end.time
+        )
     }
 }
 /// # ScalersItem
 /// A RingItem which contains the information from the FRIBDAQ scalers, or counters.
-/// 
+///
 /// Scalers are composed of a header containing the timing of the scaler data
 /// and a data vector that contains the scalers themselves (32 bits). The order of the scalers
 /// is defined by FRIBDAQ.
@@ -206,7 +219,7 @@ pub struct ScalersItem {
     pub stop_offset: u32,
     pub timestamp: u32,
     pub incremental: u32,
-    pub data: Vec<u32>
+    pub data: Vec<u32>,
 }
 
 /// Cast a RingItem to a ScalersItem
@@ -232,12 +245,24 @@ impl TryFrom<RingItem> for ScalersItem {
 
 impl ScalersItem {
     pub fn new() -> ScalersItem {
-        ScalersItem {start_offset: 0, stop_offset: 0, timestamp: 0, incremental: 0, data: vec![]}
+        ScalersItem {
+            start_offset: 0,
+            stop_offset: 0,
+            timestamp: 0,
+            incremental: 0,
+            data: vec![],
+        }
     }
 
     /// Temporary. Used to convert metadata to a single array.
     pub fn get_header_array(&self) -> Vec<u32> {
-        vec![self.start_offset, self.stop_offset, self.timestamp, self.data.len() as u32, self.incremental]
+        vec![
+            self.start_offset,
+            self.stop_offset,
+            self.timestamp,
+            self.data.len() as u32,
+            self.incremental,
+        ]
     }
 }
 
@@ -245,7 +270,7 @@ impl ScalersItem {
 /// A RingItem which contains the count of the number of physics items found by FRIBDAQ.
 #[derive(Debug, Clone)]
 pub struct CounterItem {
-    pub count: u64
+    pub count: u64,
 }
 
 /// Cast a RingItem into a CounterItem
@@ -262,19 +287,19 @@ impl TryFrom<RingItem> for CounterItem {
 
 impl CounterItem {
     pub fn new() -> Self {
-        return Self{ count: 0 };
+        return Self { count: 0 };
     }
 }
 
 /// # PhysicsItem
 /// A RingItem which contains the data of the modules read by the VMEUSB controller stack in
 /// FRIBDAQ. It is called Physics because this typically contains the data related to physical observables.
-/// 
+///
 /// For now this an ad hoc list that only contains the modules present in the readout not a comprehensive list
 /// of posibilities.
-/// 
+///
 /// ## Warning
-/// If the VMEUSB stack is modified from the standard AT-TPC layout (the daqconfig.tcl script of FRIBDAQ), 
+/// If the VMEUSB stack is modified from the standard AT-TPC layout (the daqconfig.tcl script of FRIBDAQ),
 /// the data will not be unpacked properly.
 #[derive(Debug, Clone)]
 pub struct PhysicsItem {
@@ -297,7 +322,7 @@ impl TryFrom<RingItem> for PhysicsItem {
             return Err(EvtItemError::StackOrderError);
         }
         info.fadc.extract_data(&mut cursor)?;
-        if cursor.read_u16::<LittleEndian>()?  != 0x977 {
+        if cursor.read_u16::<LittleEndian>()? != 0x977 {
             return Err(EvtItemError::StackOrderError);
         }
         info.coinc.extract_data(&mut cursor)?;
@@ -308,7 +333,12 @@ impl TryFrom<RingItem> for PhysicsItem {
 
 impl PhysicsItem {
     pub fn new() -> PhysicsItem {
-        PhysicsItem {event: 0, timestamp: 0, fadc: SIS3300Item::new(), coinc: V977Item::new()}
+        PhysicsItem {
+            event: 0,
+            timestamp: 0,
+            fadc: SIS3300Item::new(),
+            coinc: V977Item::new(),
+        }
     }
 
     /// Temporary. Used to convert metadata to a single array.
@@ -328,13 +358,20 @@ pub struct SIS3300Item {
 
 impl SIS3300Item {
     pub fn new() -> SIS3300Item {
-        SIS3300Item { traces: vec![vec![];8], samples: 0, channels: 0 }
+        SIS3300Item {
+            traces: vec![vec![]; 8],
+            samples: 0,
+            channels: 0,
+        }
     }
 
     /// Extract the relevant data from the PhysicsItem buffer.
     /// This module is fairly nasty to parse. It contains a circular memory element for handling large
-    /// data transfers. As such, the start index within the data is somewhat arbitrary. 
-    pub fn extract_data(&mut self, cursor: &mut std::io::Cursor<Vec<u8>>) -> Result<(), EvtItemError> {
+    /// data transfers. As such, the start index within the data is somewhat arbitrary.
+    pub fn extract_data(
+        &mut self,
+        cursor: &mut std::io::Cursor<Vec<u8>>,
+    ) -> Result<(), EvtItemError> {
         let group_enable_flags = cursor.read_u16::<LittleEndian>()?;
         let _daq_register = cursor.read_u32::<LittleEndian>()?; //Never used, but must be read
 
@@ -346,7 +383,8 @@ impl SIS3300Item {
 
         //The module has four groups of channels
         for group in 0..4 {
-            if group_enable_flags&(1<<group) == 0 { // skip if group is not enabled
+            if group_enable_flags & (1 << group) == 0 {
+                // skip if group is not enabled
                 continue;
             }
             self.channels += 2; // channels are read in pairs
@@ -357,33 +395,36 @@ impl SIS3300Item {
             }
             group_trigger = cursor.read_u32::<LittleEndian>()?;
             self.samples = cursor.read_u32::<LittleEndian>()? as usize;
-            self.traces[group*2] = vec![0; self.samples];
-            self.traces[group*2 + 1] = vec![0; self.samples];
-            pointer = (group_trigger&0x1ffff) as usize; // write pointer (start location in the buffer)
+            self.traces[group * 2] = vec![0; self.samples];
+            self.traces[group * 2 + 1] = vec![0; self.samples];
+            pointer = (group_trigger & 0x1ffff) as usize; // write pointer (start location in the buffer)
             let starting_position = cursor.position(); // the original position of the cursor
-            //Handle a non-normal initial position in the buffer
-            if ((group_trigger&0x80000) != 0) && (pointer < self.samples-1) { // if wrap around bit == 1
+                                                       //Handle a non-normal initial position in the buffer
+            if ((group_trigger & 0x80000) != 0) && (pointer < self.samples - 1) {
+                // if wrap around bit == 1
                 let istart: usize = pointer + 1;
                 let inc: usize = self.samples - pointer - 2;
                 cursor.set_position(starting_position + ((istart * 4) as u64));
-                for p in 0..inc+1 {
-                    self.traces[group*2+1][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
-                    self.traces[group*2][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                for p in 0..inc + 1 {
+                    self.traces[group * 2 + 1][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group * 2][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
                 }
                 //Wrap back around and read the remaining data
                 let istop: usize = self.samples - inc - 1;
                 cursor.set_position(starting_position);
                 for p in 0..istop {
-                    self.traces[group*2+1][p+inc+1] = cursor.read_u16::<LittleEndian>()? & 0xfff;
-                    self.traces[group*2][p+inc+1] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group * 2 + 1][p + inc + 1] =
+                        cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group * 2][p + inc + 1] =
+                        cursor.read_u16::<LittleEndian>()? & 0xfff;
                 }
             } else {
                 for p in 0..self.samples {
-                    self.traces[group*2+1][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
-                    self.traces[group*2][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group * 2 + 1][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
+                    self.traces[group * 2][p] = cursor.read_u16::<LittleEndian>()? & 0xfff;
                 }
             }
-            cursor.set_position(starting_position + ((self.samples*4) as u64));
+            cursor.set_position(starting_position + ((self.samples * 4) as u64));
             trailer = cursor.read_u16::<LittleEndian>()?;
             if trailer != 0xffff {
                 log::info!("Invalid SIS3300 trailer: {:#x}!", trailer);
@@ -405,7 +446,7 @@ pub struct V977Item {
 
 impl V977Item {
     pub fn new() -> V977Item {
-        V977Item{coinc: 0}
+        V977Item { coinc: 0 }
     }
 
     /// Nothing too fancy. Read a single u16 from the PhysicsItem buffer
