@@ -18,7 +18,6 @@ jobs:
 
       - name: Install HDF5
         run: |
-          brew update
           brew install hdf5
 
       - name: Build
