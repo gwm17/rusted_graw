@@ -2,8 +2,8 @@ use super::error::{EvtFileError, EvtStackError};
 use super::evt_file::EvtFile;
 use super::ring_item::RingItem;
 
-use std::path::{PathBuf, Path};
 use std::collections::VecDeque;
+use std::path::{Path, PathBuf};
 
 #[allow(dead_code)]
 #[derive(Debug)]
@@ -12,15 +12,20 @@ pub struct EvtStack {
     active_file: EvtFile,
     total_stack_size_bytes: u64,
     is_ended: bool,
-    parent_path: PathBuf
+    parent_path: PathBuf,
 }
 
 impl EvtStack {
-
     pub fn new(path: &Path) -> Result<Self, EvtStackError> {
         let (mut stack, bytes) = Self::get_file_stack(path)?;
         if let Some(file_path) = stack.pop_front() {
-            Ok(EvtStack { file_stack: stack, active_file: EvtFile::new(&file_path)?, total_stack_size_bytes: bytes, is_ended: false, parent_path: PathBuf::from(path)})
+            Ok(EvtStack {
+                file_stack: stack,
+                active_file: EvtFile::new(&file_path)?,
+                total_stack_size_bytes: bytes,
+                is_ended: false,
+                parent_path: PathBuf::from(path),
+            })
         } else {
             Err(EvtStackError::NoMatchingFiles)
         }
@@ -36,8 +41,8 @@ impl EvtStack {
                 Ok(ring) => return Ok(Some(ring)),
                 Err(EvtFileError::EndOfFile) => {
                     self.move_to_next_file()?;
-                },
-                Err(e) => return Err(EvtStackError::FileError(e))
+                }
+                Err(e) => return Err(EvtStackError::FileError(e)),
             };
         }
     }
@@ -59,8 +64,10 @@ impl EvtStack {
             return Err(EvtStackError::NoMatchingFiles);
         }
 
-        let total_stack_size_bytes = file_list.iter().fold(0, |sum, path| sum + path.metadata().unwrap().len());
-        
+        let total_stack_size_bytes = file_list
+            .iter()
+            .fold(0, |sum, path| sum + path.metadata().unwrap().len());
+
         file_list.sort(); // Can sort standard. The only change should be the number at the tail.
         stack = file_list.into();
 

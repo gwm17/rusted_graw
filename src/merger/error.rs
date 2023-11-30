@@ -1,12 +1,12 @@
+use std::error::Error;
 use std::fmt::Display;
 use std::path::PathBuf;
-use std::error::Error;
 
 use super::constants::*;
 
 /*
-    GrawData errors
- */
+   GrawData errors
+*/
 #[derive(Debug, Clone)]
 pub enum GrawDataError {
     BadAgetID(u8),
@@ -18,19 +18,21 @@ impl Display for GrawDataError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             GrawDataError::BadAgetID(id) => write!(f, "Invalid aget ID {} found in GrawData!", id),
-            GrawDataError::BadChannel(chan) => write!(f, "Invalid channel {} found in GrawData!", chan),
-            GrawDataError::BadTimeBucket(bucket) => write!(f, "Invalid time bucket {} found in GrawData!", bucket)
+            GrawDataError::BadChannel(chan) => {
+                write!(f, "Invalid channel {} found in GrawData!", chan)
+            }
+            GrawDataError::BadTimeBucket(bucket) => {
+                write!(f, "Invalid time bucket {} found in GrawData!", bucket)
+            }
         }
     }
 }
 
-impl Error for GrawDataError {
-
-}
+impl Error for GrawDataError {}
 
 /*
-    GrawFrame errors
- */
+   GrawFrame errors
+*/
 #[derive(Debug)]
 pub enum GrawFrameError {
     IOError(std::io::Error),
@@ -39,7 +41,7 @@ pub enum GrawFrameError {
     IncorrectFrameType(u16),
     IncorrectHeaderSize(u16),
     IncorrectItemSize(u16),
-    BadDatum(GrawDataError)
+    BadDatum(GrawDataError),
 }
 
 impl From<std::io::Error> for GrawFrameError {
@@ -58,31 +60,48 @@ impl Display for GrawFrameError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             GrawFrameError::IOError(e) => write!(f, "Error parsing buffer into GrawFrame: {}", e),
-            GrawFrameError::IncorrectMetaType(t) => write!(f, "Incorrect meta type found for GrawFrame! Found: {} Expected: {}", t, EXPECTED_META_TYPE),
-            GrawFrameError::IncorrectFrameSize(s, cs) => write!(f, "Incorrect frame size found for GrawFrame! Found: {}, Expected: {}", s, cs),
-            GrawFrameError::IncorrectFrameType(t) => write!(f, "Incorrect frame type found for GrawFrame! Found: {}, Expected: {} or {}", t, EXPECTED_FRAME_TYPE_FULL, EXPECTED_FRAME_TYPE_PARTIAL),
-            GrawFrameError::IncorrectHeaderSize(s) => write!(f, "Incorrect header size found for GrawFrame! Found: {}, Expected: {}", s, EXPECTED_HEADER_SIZE),
-            GrawFrameError::IncorrectItemSize(s) => write!(f, "Incorrect item size found for GrawFrame! Found: {}, Expected: {} or {}", s, EXPECTED_ITEM_SIZE_FULL, EXPECTED_ITEM_SIZE_PARTIAL),
-            GrawFrameError::BadDatum(e) => write!(f, "Bad datum found in GrawFrame! Error: {}", e)
+            GrawFrameError::IncorrectMetaType(t) => write!(
+                f,
+                "Incorrect meta type found for GrawFrame! Found: {} Expected: {}",
+                t, EXPECTED_META_TYPE
+            ),
+            GrawFrameError::IncorrectFrameSize(s, cs) => write!(
+                f,
+                "Incorrect frame size found for GrawFrame! Found: {}, Expected: {}",
+                s, cs
+            ),
+            GrawFrameError::IncorrectFrameType(t) => write!(
+                f,
+                "Incorrect frame type found for GrawFrame! Found: {}, Expected: {} or {}",
+                t, EXPECTED_FRAME_TYPE_FULL, EXPECTED_FRAME_TYPE_PARTIAL
+            ),
+            GrawFrameError::IncorrectHeaderSize(s) => write!(
+                f,
+                "Incorrect header size found for GrawFrame! Found: {}, Expected: {}",
+                s, EXPECTED_HEADER_SIZE
+            ),
+            GrawFrameError::IncorrectItemSize(s) => write!(
+                f,
+                "Incorrect item size found for GrawFrame! Found: {}, Expected: {} or {}",
+                s, EXPECTED_ITEM_SIZE_FULL, EXPECTED_ITEM_SIZE_PARTIAL
+            ),
+            GrawFrameError::BadDatum(e) => write!(f, "Bad datum found in GrawFrame! Error: {}", e),
         }
     }
 }
 
-impl Error for GrawFrameError {
-
-}
-
+impl Error for GrawFrameError {}
 
 /*
-    GrawFile errors
- */
+   GrawFile errors
+*/
 
 #[derive(Debug)]
 pub enum GrawFileError {
     BadFrame(GrawFrameError),
     BadFilePath(PathBuf),
     EndOfFile,
-    IOError(std::io::Error)
+    IOError(std::io::Error),
 }
 
 impl From<GrawFrameError> for GrawFileError {
@@ -100,35 +119,39 @@ impl From<std::io::Error> for GrawFileError {
 impl Display for GrawFileError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            GrawFileError::BadFrame(frame) => write!(f, "Bad frame found when reading GrawFile! Error: {}", frame),
-            GrawFileError::BadFilePath(path) => write!(f, "File {} does not exist at GrawFile::new!", path.display()),
+            GrawFileError::BadFrame(frame) => {
+                write!(f, "Bad frame found when reading GrawFile! Error: {}", frame)
+            }
+            GrawFileError::BadFilePath(path) => write!(
+                f,
+                "File {} does not exist at GrawFile::new!",
+                path.display()
+            ),
             GrawFileError::EndOfFile => write!(f, "File reached end!"),
-            GrawFileError::IOError(e) => write!(f, "GrawFile recieved an io error: {}!", e)
+            GrawFileError::IOError(e) => write!(f, "GrawFile recieved an io error: {}!", e),
         }
     }
 }
 
-impl Error for GrawFileError {
-
-}
+impl Error for GrawFileError {}
 
 /*
-    EvtItem errors
- */
+   EvtItem errors
+*/
 
 #[derive(Debug)]
 pub enum EvtItemError {
     IOError(std::io::Error),
     StackOrderError,
-    ItemSizeError
+    ItemSizeError,
 }
 
- impl Display for EvtItemError {
+impl Display for EvtItemError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::IOError(e) => write!(f, "Error parsing buffer into Evt Item: {}", e),
             Self::StackOrderError => write!(f, "In Physics item, module stack was out of order!"),
-            Self::ItemSizeError => write!(f, "RingItem buffer has insufficent size!")
+            Self::ItemSizeError => write!(f, "RingItem buffer has insufficent size!"),
         }
     }
 }
@@ -139,9 +162,7 @@ impl From<std::io::Error> for EvtItemError {
     }
 }
 
-impl Error for EvtItemError {
-
- }
+impl Error for EvtItemError {}
 
 /*
     EvtFile errors
@@ -152,7 +173,7 @@ pub enum EvtFileError {
     BadItem(EvtItemError),
     BadFilePath(PathBuf),
     EndOfFile,
-    IOError(std::io::Error)
+    IOError(std::io::Error),
 }
 
 impl From<EvtItemError> for EvtFileError {
@@ -170,17 +191,19 @@ impl From<std::io::Error> for EvtFileError {
 impl Display for EvtFileError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            EvtFileError::BadItem(frame) => write!(f, "Bad item found when reading evt File! Error: {}", frame),
-            EvtFileError::BadFilePath(path) => write!(f, "File {} does not exist at EvtFile::new!", path.display()),
+            EvtFileError::BadItem(frame) => {
+                write!(f, "Bad item found when reading evt File! Error: {}", frame)
+            }
+            EvtFileError::BadFilePath(path) => {
+                write!(f, "File {} does not exist at EvtFile::new!", path.display())
+            }
             EvtFileError::EndOfFile => write!(f, "File reached end!"),
-            EvtFileError::IOError(e) => write!(f, "Evt File received an io error: {}!", e)
+            EvtFileError::IOError(e) => write!(f, "Evt File received an io error: {}!", e),
         }
     }
 }
 
-impl Error for EvtFileError {
-
-}
+impl Error for EvtFileError {}
 
 /*
     EvtStack errors
@@ -190,9 +213,9 @@ impl Error for EvtFileError {
 pub enum EvtStackError {
     IOError(std::io::Error),
     NoMatchingFiles,
-    FileError(EvtFileError)
+    FileError(EvtFileError),
 }
- 
+
 impl From<EvtFileError> for EvtStackError {
     fn from(value: EvtFileError) -> Self {
         Self::FileError(value)
@@ -210,24 +233,25 @@ impl Display for EvtStackError {
         match self {
             Self::IOError(e) => write!(f, "EvtStack recieved an io error: {}", e),
             Self::FileError(e) => write!(f, "EvtStack recieved an EvtFileError: {}", e),
-            Self::NoMatchingFiles => write!(f, "EvtStack did not find any matching files in the given directory!")
+            Self::NoMatchingFiles => write!(
+                f,
+                "EvtStack did not find any matching files in the given directory!"
+            ),
         }
     }
 }
 
-impl Error for EvtStackError {
+impl Error for EvtStackError {}
 
-}
-
- /*
-    AsadStack errors
- */
+/*
+   AsadStack errors
+*/
 
 #[derive(Debug)]
 pub enum AsadStackError {
     IOError(std::io::Error),
     FileError(GrawFileError),
-    NoMatchingFiles
+    NoMatchingFiles,
 }
 
 impl From<GrawFileError> for AsadStackError {
@@ -247,24 +271,22 @@ impl Display for AsadStackError {
         match self {
             Self::IOError(e) => write!(f, "AsadStack recieved an io error: {}", e),
             Self::FileError(e) => write!(f, "AsadStack recieved a file error: {}", e),
-            Self::NoMatchingFiles => write!(f, "AsadStack couldn't find any matching files!")
+            Self::NoMatchingFiles => write!(f, "AsadStack couldn't find any matching files!"),
         }
     }
 }
 
-impl Error for AsadStackError {
-
-}
+impl Error for AsadStackError {}
 
 /*
-    PadMap errors
- */
+   PadMap errors
+*/
 
 #[derive(Debug)]
 pub enum PadMapError {
     IOError(std::io::Error),
     ParsingError(std::num::ParseIntError),
-    BadFileFormat
+    BadFileFormat,
 }
 
 impl From<std::io::Error> for PadMapError {
@@ -289,13 +311,11 @@ impl Display for PadMapError {
     }
 }
 
-impl Error for PadMapError {
-
-}
+impl Error for PadMapError {}
 
 /*
-    Event errors
- */
+   Event errors
+*/
 #[derive(Debug)]
 #[allow(dead_code)]
 pub enum EventError {
@@ -312,20 +332,18 @@ impl Display for EventError {
     }
 }
 
-impl Error for EventError {
-    
-}
+impl Error for EventError {}
 
 /*
-    Merger errors
- */
+   Merger errors
+*/
 
 #[derive(Debug)]
 pub enum MergerError {
     AsadError(AsadStackError),
     NoFilesError,
     IOError(std::io::Error),
-    ConfigError(ConfigError)
+    ConfigError(ConfigError),
 }
 
 impl From<AsadStackError> for MergerError {
@@ -349,26 +367,30 @@ impl From<ConfigError> for MergerError {
 impl Display for MergerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            MergerError::AsadError(e) => write!(f, "A stack error occurred while merging! Error: {}", e),
-            MergerError::NoFilesError => write!(f, "Merger could not find any files with .graw extension!"),
+            MergerError::AsadError(e) => {
+                write!(f, "A stack error occurred while merging! Error: {}", e)
+            }
+            MergerError::NoFilesError => {
+                write!(f, "Merger could not find any files with .graw extension!")
+            }
             MergerError::IOError(e) => write!(f, "The merger recieved an io error: {}", e),
-            MergerError::ConfigError(e) => write!(f, "The merger encountered a config error: {}", e)
+            MergerError::ConfigError(e) => {
+                write!(f, "The merger encountered a config error: {}", e)
+            }
         }
     }
 }
 
-impl Error for MergerError {
-
-}
+impl Error for MergerError {}
 
 /*
-    EventBuilder errors
- */
+   EventBuilder errors
+*/
 
 #[derive(Debug)]
 pub enum EventBuilderError {
     EventOutOfOrder(u32, u32),
-    EventError(EventError)
+    EventError(EventError),
 }
 
 impl From<EventError> for EventBuilderError {
@@ -386,18 +408,16 @@ impl Display for EventBuilderError {
     }
 }
 
-impl Error for EventBuilderError {
-
-}
+impl Error for EventBuilderError {}
 
 /*
-    Config errors
- */
+   Config errors
+*/
 #[derive(Debug)]
 pub enum ConfigError {
     BadFilePath(PathBuf),
     IOError(std::io::Error),
-    ParsingError(serde_yaml::Error)
+    ParsingError(serde_yaml::Error),
 }
 
 impl From<std::io::Error> for ConfigError {
@@ -415,16 +435,16 @@ impl From<serde_yaml::Error> for ConfigError {
 impl Display for ConfigError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::BadFilePath(path) => write!(f, "File {} given to Config does not exist!", path.display()),
+            Self::BadFilePath(path) => {
+                write!(f, "File {} given to Config does not exist!", path.display())
+            }
             Self::IOError(e) => write!(f, "Config received an io error: {}", e),
-            Self::ParsingError(e) => write!(f, "Config received a parsing error: {}", e)
+            Self::ParsingError(e) => write!(f, "Config received a parsing error: {}", e),
         }
     }
 }
 
-impl Error for ConfigError {
-
-}
+impl Error for ConfigError {}
 
 #[derive(Debug)]
 pub enum ProcessorError {
@@ -434,7 +454,7 @@ pub enum ProcessorError {
     ConfigError(ConfigError),
     MapError(PadMapError),
     EvtError(EvtStackError),
-    BadRingConversion(EvtItemError)
+    BadRingConversion(EvtItemError),
 }
 
 impl From<MergerError> for ProcessorError {
@@ -488,11 +508,11 @@ impl Display for ProcessorError {
             Self::ConfigError(e) => write!(f, "Processor failed due to Configuration error: {}", e),
             Self::MapError(e) => write!(f, "Processor failed due to PadMap error: {}", e),
             Self::EvtError(e) => write!(f, "Processor failed due to evt stack error: {}", e),
-            Self::BadRingConversion(e) => write!(f, "Processor failed due to bad ring item conversion: {}", e)
+            Self::BadRingConversion(e) => {
+                write!(f, "Processor failed due to bad ring item conversion: {}", e)
+            }
         }
     }
 }
 
-impl Error for ProcessorError {
-
-}
+impl Error for ProcessorError {}
