@@ -14,7 +14,7 @@ fxhash = "0.2.1"
 hdf5 = { git = "https://github.com/aldanor/hdf5-rust.git" }
 human_bytes = "0.4.3"
 log = "0.4.20"
-native-dialog = { version = "0.6.4", features = ["windows_dpi_awareness"] }
+native-dialog = { version = "0.7.0", features = ["windows_dpi_awareness"] }
 ndarray = "0.15.6"
 serde = "1.0.193"
 serde_derive = "1.0.166"
