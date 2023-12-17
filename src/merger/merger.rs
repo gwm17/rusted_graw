@@ -1,17 +1,16 @@
 use std::path::PathBuf;
 
-
-use super::constants::{NUMBER_OF_COBOS, NUMBER_OF_ASADS};
+use super::constants::{NUMBER_OF_ASADS, NUMBER_OF_COBOS};
 use super::error::AsadStackError;
 
 use super::asad_stack::AsadStack;
-use super::graw_frame::GrawFrame;
-use super::error::MergerError;
 use super::config::Config;
+use super::error::MergerError;
+use super::graw_frame::GrawFrame;
 
 /// # Merger
 /// Merger essentially performs a merge-sort operation on the data files, taking all of the separate
-/// data from the .graw files and zipping them into a single data stream which is sorted in time. 
+/// data from the .graw files and zipping them into a single data stream which is sorted in time.
 /// Currently uses EventID to decide the time of a frame, not the timestamp.
 #[derive(Debug)]
 pub struct Merger {
@@ -20,10 +19,8 @@ pub struct Merger {
 }
 
 impl Merger {
-
     /// Create a new merger. Requires the path to the graw data files
     pub fn new(config: &Config, run_number: i32) -> Result<Self, MergerError> {
-
         let mut merger = Merger {
             file_stacks: Vec::new(),
             total_data_size_bytes: 0,
@@ -35,7 +32,7 @@ impl Merger {
             if config.online {
                 graw_dir = config.get_online_directory(run_number, &cobo)?;
             } else {
-                graw_dir = config.get_run_directory(run_number,&cobo)?;
+                graw_dir = config.get_run_directory(run_number, &cobo)?;
             }
             for asad in 0..NUMBER_OF_ASADS {
                 match AsadStack::new(&graw_dir, cobo as i32, asad as i32) {
@@ -57,7 +54,10 @@ impl Merger {
             return Err(MergerError::NoFilesError);
         }
 
-        merger.total_data_size_bytes = merger.file_stacks.iter().fold(0, |sum, stack| sum + stack.get_stack_size_bytes());
+        merger.total_data_size_bytes = merger
+            .file_stacks
+            .iter()
+            .fold(0, |sum, stack| sum + stack.get_stack_size_bytes());
         Ok(merger)
     }
 
@@ -66,7 +66,6 @@ impl Merger {
     pub fn get_next_frame(&mut self) -> Result<Option<GrawFrame>, MergerError> {
         let mut earliest_event_index: Option<(usize, u32)> = Option::None;
         for (idx, stack) in self.file_stacks.iter_mut().enumerate() {
-
             if let Some(meta) = stack.get_next_frame_metadata()? {
                 match earliest_event_index {
                     None => {
@@ -81,7 +80,8 @@ impl Merger {
             }
         }
 
-        if earliest_event_index.is_none() { //None of the remaining stacks had data for us. We've read everything.
+        if earliest_event_index.is_none() {
+            //None of the remaining stacks had data for us. We've read everything.
             return Ok(None);
         } else {
             //This MUST happen before the retain call. The indexes will be modified.
@@ -100,5 +100,4 @@ impl Merger {
     pub fn get_file_stacks(&self) -> &Vec<AsadStack> {
         &self.file_stacks
     }
-
 }
