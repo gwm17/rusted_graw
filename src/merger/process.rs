@@ -146,7 +146,9 @@ pub fn process(config: Config, progress: Arc<Mutex<f32>>) -> Result<(), Processo
             *bar = 0.0;
         }
         if config.does_run_exist(run) {
+            log::info!("Processing run {}...", run);
             process_run(&config, run, progress.clone())?;
+            log::info!("Finished processing run {}.", run);
         } else {
             log::info!("Run {} does not exist, skipping...", run);
         }
